@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  IIS + HttpPlatformHandler 托管 FastAPI
+
+  推荐使用：python -m iis_entry（见 backend/iis_entry.py）
+  从环境变量 HTTP_PLATFORM_PORT 启动 uvicorn，避免 --port %HTTP_PLATFORM_PORT% 在部分 IIS 上未展开导致 502.3。
+
+  1. 安装 HttpPlatformHandler；2. 复制本文件为 web.config 并修改路径；3. 站点物理路径指向 backend；4. 绑定域名与端口。
+
+  processPath 可二选一：
+  - venv\Scripts\python.exe（若 IIS 下出现 No Python at … 可改用系统已装依赖的 python.exe）
+  - 系统 Python312\python.exe（须对该目录授予 IIS 应用程序池身份 RX，见 docs/Windows11-IIS部署www-blogapi-8081.md §7）
+
+  详细步骤：docs/Windows11-IIS部署www-blogapi-8081.md
+-->
+<configuration>
+  <system.webServer>
+    <handlers>
+      <add name="httpPlatformHandler" path="*" verb="*" modules="httpPlatformHandler" resourceType="Unspecified" />
+    </handlers>
+    <httpPlatform
+      processPath="须修改\PythonBlog\backend\venv\Scripts\python.exe"
+      arguments="-m iis_entry"
+      stdoutLogEnabled="true"
+      stdoutLogFile=".\logs\stdout"
+      startupTimeLimit="120"
+      startupRetryCount="10">
+      <environmentVariables>
+        <environmentVariable name="PYTHONPATH" value="须修改\PythonBlog\backend" />
+      </environmentVariables>
+    </httpPlatform>
+  </system.webServer>
+</configuration>

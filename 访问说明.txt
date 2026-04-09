@@ -1,0 +1,21 @@
+若浏览器提示「无法访问此页面 / 127.0.0.1 拒绝连接」，请按下面排查。
+
+一、必须先有进程在监听
+1. 双击 start-all.bat，或分别双击 run-backend.bat、run-frontend.bat。
+2. 两个窗口都不要关；关掉后端窗口后再访问会「拒绝连接」。
+
+二、请用 127.0.0.1，不要用 localhost
+在地址栏输入：http://127.0.0.1:8000/api/health
+部分环境下 localhost 会走 IPv6（::1），表现为拒绝连接。
+
+三、Python
+若 run-backend.bat 提示与 Store 有关，请从 https://www.python.org/downloads/ 安装 Python 3.10+ 并勾选 Add to PATH，再执行 backend\setup-venv.bat。
+
+四、端口
+后端 8000；前端开发默认 5173（被占用时以前端窗口打印的 Local 为准）。
+
+五、诊断.bat
+查看 8000、5173 是否在 LISTENING。
+
+六、SQL Server
+在 backend\.env 配置 DATABASE_URL（见 .env.example）。需本机已安装 SQL Server 并创建 BlogDB，或执行 database\init.sql 初始化。
