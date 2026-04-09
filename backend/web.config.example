@@ -9,9 +9,9 @@
 
   processPath 可二选一：
   - venv\Scripts\python.exe（若 IIS 下出现 No Python at … 可改用系统已装依赖的 python.exe）
-  - 系统 Python312\python.exe（须对该目录授予 IIS 应用程序池身份 RX，见 docs/Windows11-IIS部署www-blogapi-8081.md §7）
+  - 系统 Python312\python.exe（须对该目录授予 IIS 应用程序池身份 RX，见 docs/后端-IIS部署说明.md §7）
 
-  详细步骤：docs/Windows11-IIS部署www-blogapi-8081.md
+  详细步骤：docs/后端-IIS部署说明.md
 -->
 <configuration>
   <system.webServer>

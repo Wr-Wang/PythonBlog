@@ -1,6 +1,7 @@
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import AdminPaginationBar from "../../components/AdminPaginationBar.vue";
 import BaseModal from "../../components/BaseModal.vue";
 import ConfirmDialog from "../../components/ConfirmDialog.vue";
 import {
@@ -15,6 +16,10 @@ import { COMMENT_EMOJIS, insertEmojiAtCursor } from "../../utils/commentEmoji";
 const router = useRouter();
 const rows = ref([]);
 const posts = ref([]);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(20);
+const postsLoaded = ref(false);
 const loading = ref(true);
 const err = ref("");
 
@@ -35,17 +40,30 @@ const delRow = ref(null);
 const delMsg = ref("");
 
 async function loadPosts() {
-  const { data } = await adminListPosts({ limit: 500 });
-  posts.value = data;
+  const { data } = await adminListPosts({ skip: 0, limit: 500 });
+  posts.value = data.items ?? data;
+  postsLoaded.value = true;
 }
 
 async function load() {
   loading.value = true;
   err.value = "";
   try {
-    await loadPosts();
-    const { data } = await listCommentsAdmin({ limit: 500 });
-    rows.value = data;
+    if (!postsLoaded.value) await loadPosts();
+    let p = page.value;
+    const skip = (p - 1) * pageSize.value;
+    let { data } = await listCommentsAdmin({ skip, limit: pageSize.value });
+    const maxP = Math.max(1, Math.ceil(data.total / pageSize.value) || 1);
+    if (p > maxP && data.total >= 0) {
+      page.value = maxP;
+      p = maxP;
+      ({ data } = await listCommentsAdmin({
+        skip: (p - 1) * pageSize.value,
+        limit: pageSize.value,
+      }));
+    }
+    rows.value = data.items ?? data;
+    total.value = data.total ?? 0;
   } catch (e) {
     err.value = e.response?.data?.detail || e.message || "加载失败";
     if (e.response?.status === 401) {
@@ -57,7 +75,17 @@ async function load() {
   }
 }
 
-onMounted(load);
+watch(page, load, { immediate: true });
+
+function setPage(v) {
+  page.value = v;
+}
+
+function onPageSizeChange(newSize) {
+  pageSize.value = newSize;
+  if (page.value !== 1) page.value = 1;
+  else load();
+}
 
 /** 默认昵称为当前所选文章的作者（博主登录名），无作者时为空。 */
 function nicknameDefaultForPost(postIdStr) {
@@ -156,6 +184,15 @@ watch([fPostId, formOpen, mode], () => {
   fAuthor.value = nicknameDefaultForPost(fPostId.value);
 });
 
+async function setStatus(r, status) {
+  try {
+    await updateCommentAdmin(r.id, { status });
+    await load();
+  } catch (e) {
+    alert(e.response?.data?.detail || e.message || "更新失败");
+  }
+}
+
 async function confirmDel() {
   if (!delRow.value) return;
   try {
@@ -176,18 +213,27 @@ async function confirmDel() {
         <button type="button" @click="openCreate">新增评论</button>
       </div>
     </div>
+    <AdminPaginationBar
+      v-if="!loading && !err && total > 0"
+      :total="total"
+      :page="page"
+      :page-size="pageSize"
+      @update:page="setPage"
+      @page-size-change="onPageSizeChange"
+    />
     <p v-if="loading" class="admin-loading">加载中…</p>
     <p v-else-if="err" class="error">{{ err }}</p>
     <div v-else class="admin-table-scroll">
       <table class="admin-data-table">
         <thead>
           <tr>
-            <th>id</th>
-            <th>post_id</th>
-            <th>post_title</th>
-            <th>昵称</th>
+            <th>编号</th>
+            <th>文章编号</th>
+            <th>文章标题</th>
+            <th>作者昵称</th>
             <th>内容</th>
-            <th>created_at</th>
+            <th>创建时间</th>
+            <th>审核状态</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -199,7 +245,24 @@ async function confirmDel() {
             <td class="comment-text">{{ r.author_name }}</td>
             <td class="admin-cell-clip comment-text">{{ r.content }}</td>
             <td class="admin-mono">{{ r.created_at }}</td>
+            <td class="admin-mono">{{ r.status || "approved" }}</td>
             <td class="admin-ops">
+              <button
+                v-if="r.status === 'pending'"
+                type="button"
+                class="secondary"
+                @click="setStatus(r, 'approved')"
+              >
+                通过
+              </button>
+              <button
+                v-if="r.status === 'pending'"
+                type="button"
+                class="secondary"
+                @click="setStatus(r, 'rejected')"
+              >
+                拒绝
+              </button>
               <button type="button" class="secondary" @click="openReply(r)">回复</button>
               <button type="button" class="secondary" @click="openEdit(r)">编辑</button>
               <button type="button" class="danger" @click="askDel(r)">删除</button>

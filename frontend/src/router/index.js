@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import HomeView from "../views/HomeView.vue";
 import PostView from "../views/PostView.vue";
+import SearchView from "../views/SearchView.vue";
 import AdminLogin from "../views/AdminLogin.vue";
 import AdminLayout from "../views/admin/AdminLayout.vue";
 import AdminPostsPage from "../views/admin/AdminPostsPage.vue";
@@ -13,6 +14,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", name: "home", component: HomeView },
+    { path: "/search", name: "search", component: SearchView },
     { path: "/post/:slug", name: "post", component: PostView, props: true },
     {
       path: "/admin/login",

@@ -1,4 +1,4 @@
-﻿"""
+"""
 标签 HTTP 路由：后台增删改查。
 
 与文章为多对多，删标签会清理 post_tags 关联行（数据库级 CASCADE）。
@@ -12,6 +12,7 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models import Tag, User
 from app.schemas import TagAdminOut, TagCreate, TagUpdate
+from app.schemas.page import Page
 from app.services.crud_utils import (
     apply_updates,
     commit_and_refresh,
@@ -23,14 +24,16 @@ from app.services.crud_utils import (
 router = APIRouter(prefix="/api/tags", tags=["tags"])
 
 
-@router.get("/admin", response_model=list[TagAdminOut])
+@router.get("/admin", response_model=Page[TagAdminOut])
 def list_tags(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=500),
 ):
-    return db.query(Tag).order_by(Tag.id.asc()).offset(skip).limit(limit).all()
+    total = db.query(Tag).count()
+    rows = db.query(Tag).order_by(Tag.id.asc()).offset(skip).limit(limit).all()
+    return Page(items=rows, total=total)
 
 
 @router.get("/admin/{tag_id}", response_model=TagAdminOut)

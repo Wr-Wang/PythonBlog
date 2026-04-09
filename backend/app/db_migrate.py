@@ -209,6 +209,33 @@ def ensure_comments_unicode_columns(engine: Engine) -> None:
             conn.execute(text(sql))
 
 
+def ensure_comment_status_column(engine: Engine) -> None:
+    """为 comments 增加 status（MOD-01）；旧数据默认已审核通过。"""
+    if engine.dialect.name != "mssql":
+        return
+    insp = inspect(engine)
+    try:
+        table_names = {t.lower() for t in insp.get_table_names(schema="dbo")}
+    except TypeError:
+        table_names = {t.lower() for t in insp.get_table_names()}
+    if "comments" not in table_names:
+        return
+    try:
+        columns = insp.get_columns("comments", schema="dbo")
+    except Exception:
+        columns = insp.get_columns("comments")
+    col_names = {c["name"].lower() for c in columns}
+    if "status" in col_names:
+        return
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE dbo.comments ADD status NVARCHAR(20) NOT NULL "
+                "DEFAULT N'approved'"
+            )
+        )
+
+
 def ensure_posts_extra_columns(engine: Engine) -> None:
     """为旧版 posts 表补充 category_id、cover_image_url（若缺失）。"""
     insp = inspect(engine)

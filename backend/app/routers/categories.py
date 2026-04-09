@@ -1,4 +1,4 @@
-﻿"""
+"""
 分类 HTTP 路由：后台增删改查（路径均带 /admin 前缀，需 JWT）。
 
 slug 全局唯一；删除前若有文章引用 category_id，可能受外键限制需先解绑。
@@ -12,6 +12,7 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models import Category, User
 from app.schemas import CategoryAdminOut, CategoryCreate, CategoryUpdate
+from app.schemas.page import Page
 from app.services.crud_utils import (
     apply_updates,
     commit_and_refresh,
@@ -23,14 +24,16 @@ from app.services.crud_utils import (
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
 
-@router.get("/admin", response_model=list[CategoryAdminOut])
+@router.get("/admin", response_model=Page[CategoryAdminOut])
 def list_categories(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=500),
 ):
-    return db.query(Category).order_by(Category.id.asc()).offset(skip).limit(limit).all()
+    total = db.query(Category).count()
+    rows = db.query(Category).order_by(Category.id.asc()).offset(skip).limit(limit).all()
+    return Page(items=rows, total=total)
 
 
 @router.get("/admin/{category_id}", response_model=CategoryAdminOut)

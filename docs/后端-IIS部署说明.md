@@ -1,6 +1,6 @@
-# 后端 IIS 部署说明（示例：www.blogapi.com:8081）
+# 后端 IIS 部署说明（示例：www.blogapi.com:80）
 
-本文档说明在 **Windows Server / Windows 10+ IIS** 上托管本项目的 **FastAPI** 后端，访问方式为 **`http://www.blogapi.com:8081`**（可按需改为 HTTPS）。
+本文档说明在 **Windows Server / Windows 10+ IIS** 上托管本项目的 **FastAPI** 后端，访问方式为 **`http://www.blogapi.com:80`**（可按需改为 HTTPS）。
 
 ---
 
@@ -8,8 +8,8 @@
 
 | 项目 | 说明 |
 |------|------|
-| **对外** | 浏览器访问 **`http://www.blogapi.com:8081`**（主机名 + 端口由 **IIS 站点绑定**） |
-| **对内** | **HttpPlatformHandler** 启动 **`python -m iis_entry`**（见 **`backend/iis_entry.py`**），从环境变量 **`HTTP_PLATFORM_PORT`** 读端口后启动 uvicorn；**勿**在命令行写死 8081（对外端口仅由 IIS 绑定） |
+| **对外** | 浏览器访问 **`http://www.blogapi.com:80`**（主机名 + 端口由 **IIS 站点绑定**） |
+| **对内** | **HttpPlatformHandler** 启动 **`python -m iis_entry`**（见 **`backend/iis_entry.py`**），从环境变量 **`HTTP_PLATFORM_PORT`** 读端口后启动 uvicorn；**勿**在命令行写死 80（对外端口仅由 IIS 绑定） |
 | **代码目录** | IIS 网站**物理路径**建议指向仓库中的 **`backend`** 文件夹（内含 `app/`、`venv/`、`web.config`） |
 
 ---
@@ -77,7 +77,7 @@ cd C:\path\to\PythonBlog\backend
 CORS_ORIGINS=https://你的前端域名,http://localhost:5173
 ```
 
-API 自身地址为 **`https://www.blogapi.com:8081`** 时，通常**不必**把 API 域名写进 `CORS_ORIGINS`（浏览器同源策略针对的是**页面所在源**，不是 API 地址本身）；仅当**浏览器页面**在别的源访问该 API 时，需要把**页面源**列入 `CORS_ORIGINS`。
+API 自身地址为 **`https://www.blogapi.com:80`** 时，通常**不必**把 API 域名写进 `CORS_ORIGINS`（浏览器同源策略针对的是**页面所在源**，不是 API 地址本身）；仅当**浏览器页面**在别的源访问该 API 时，需要把**页面源**列入 `CORS_ORIGINS`。
 
 ---
 
@@ -89,7 +89,7 @@ API 自身地址为 **`https://www.blogapi.com:8081`** 时，通常**不必**把
 4. **绑定**：
    - **类型**：`http`（若已配置证书可再添加 `https`）。
    - **IP 地址**：全部未分配或本机 IP。
-   - **端口**：**`8081`**。
+   - **端口**：**`80`**。
    - **主机名**：**`www.blogapi.com`**。
 5. **应用程序池**：无托管代码（HttpPlatformHandler 启动外部进程，与 .NET CLR 无关）；可将「.NET CLR 版本」设为**无托管代码**。
 6. 确认 **`backend\logs`** 目录存在（`web.config` 中 `stdoutLogFile` 使用 `.\logs\stdout`，首次可手动建 `logs` 文件夹），否则日志可能失败；失败时可暂时关闭 `stdoutLogEnabled` 排查。
@@ -101,7 +101,7 @@ API 自身地址为 **`https://www.blogapi.com:8081`** 时，通常**不必**把
 | 项 | 说明 |
 |----|------|
 | **DNS** | 将 **`www.blogapi.com`** 的 **A 记录** 指向本服务器公网 IP（内网测试可改 **hosts**：`127.0.0.1 www.blogapi.com`）。 |
-| **防火墙** | 入站规则放行 **TCP 8081**（若仅本机访问可不改）。 |
+| **防火墙** | 入站规则放行 **TCP 80**（若仅本机访问可不改）。 |
 
 ---
 
@@ -113,9 +113,9 @@ API 自身地址为 **`https://www.blogapi.com:8081`** 时，通常**不必**把
 
 ## 7. 验证
 
-- 浏览器访问：`http://www.blogapi.com:8081/api/health`
+- 浏览器访问：`http://www.blogapi.com:80/api/health`
 - 应返回 JSON，`status` 为 `ok` 且数据库正常时 `database` 为 `ok`。
-- Swagger：`http://www.blogapi.com:8081/docs`
+- Swagger：`http://www.blogapi.com:80/docs`
 
 若 **503** 或 500，查看 **`backend/logs`** 下 stdout 日志，并核对 **`.env`**、**ODBC**、**SQL Server** 是否可达。
 
@@ -144,15 +144,45 @@ API 自身地址为 **`https://www.blogapi.com:8081`** 时，通常**不必**把
 
    `uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4`
 
-2. 安装 **Application Request Routing (ARR)** 与 **URL Rewrite**，站点绑定仍为 **`www.blogapi.com:8081`**，规则将请求**反向代理**到 `http://127.0.0.1:8000`。
+2. 安装 **Application Request Routing (ARR)** 与 **URL Rewrite**，站点绑定仍为 **`www.blogapi.com:80`**，规则将请求**反向代理**到 `http://127.0.0.1:8000`。
 
 此方式便于与 **Windows 服务**、**进程守护** 结合，但需单独维护 uvicorn 进程。
 
 ---
 
-## 9. 相关文档
+## 9. Windows 11 快速步骤（合并版）
 
-- [Windows11-IIS部署www-blogapi-8081.md](./Windows11-IIS部署www-blogapi-8081.md)（**Windows 11**：`www.blogapi.com:8081` 逐步操作、**权限/icacls**、验证 URL）
-- [IIS前后端部署.md](./IIS前后端部署.md)（**同一站点**：IIS 指向 `backend` + `frontend/dist` 目录结构、完整步骤与 `web.config` 模板）
+适用于本仓库在 Windows 11 本机或同类环境快速落地：
+
+1. 启用 IIS，安装 HttpPlatformHandler。  
+2. 安装 Python 3.10+、SQL Server ODBC Driver。  
+3. 在 `backend` 下创建 venv 并安装依赖：`pip install -r requirements.txt`。  
+4. 配置 `backend/.env`（至少 `DATABASE_URL`、`SECRET_KEY`、`CORS_ORIGINS`）。  
+5. 前端构建：`cd frontend && npm run build`（生成 `frontend/dist`）。  
+6. 复制 `backend/web.config.example` 为 `backend/web.config`，设置 `processPath` 与 `PYTHONPATH`。  
+7. 为应用程序池身份授予 `backend` 与 Python 目录读取/执行权限（可用 `backend/scripts/ensure-iis-acls.ps1`）。  
+8. IIS 新建站点 `BlogAPI`：物理路径指向 `backend`，绑定 `http/*:80:www.blogapi.com`。  
+9. 回收应用程序池并验证：
+   - `http://www.blogapi.com:80/api/health`
+   - `http://www.blogapi.com:80/docs`
+   - `http://www.blogapi.com:80/`
+
+---
+
+## 10. 同端口前后端原理（合并版）
+
+本项目并不是两个服务同时监听 80，而是：
+
+- **IIS** 监听 `80`，通过 HttpPlatformHandler 转发到 Python 子进程。  
+- **Uvicorn + FastAPI** 在同一进程内按路径处理：`/api/*`、`/docs`、`/uploads/*`、`/` 与 `/assets/*`。  
+- 浏览器始终只看到 `www.blogapi.com:80`，因此同源访问 `/api` 不触发跨域。  
+
+一句话：**同端口来自“一个 FastAPI 进程同时提供 API 与静态前端”，不是两个程序共占一个端口。**
+
+---
+
+## 11. 相关文档
+
+- [IIS前后端部署.md](./IIS前后端部署.md)（同一站点目录结构与 `web.config` 模板）
 - [后端部署说明.md](./后端部署说明.md)（裸机 uvicorn）
 - [后端目录与文件说明.md](./后端目录与文件说明.md)

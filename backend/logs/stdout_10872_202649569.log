@@ -1,0 +1,37 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [19568]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:2981 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64353:0 - "GET /post/weekly-learning-notes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64353:0 - "GET /assets/index-ByJVgR9d.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59163:0 - "GET /assets/index-DzYHJzxP.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64353:0 - "GET /api/posts/by-slug/weekly-learning-notes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64353:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59163:0 - "GET /api/comments/by-post/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64353:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59163:0 - "GET /api/posts?published_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64353:0 - "GET /api/posts/by-slug/rich-editor-demo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64353:0 - "GET /api/comments/by-post/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /admin/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /assets/index-ByJVgR9d.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51688:0 - "GET /assets/index-DzYHJzxP.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54993:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /api/posts/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688:0 - "GET /api/posts/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688:0 - "GET /api/posts?published_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688:0 - "GET /api/posts/by-slug/weekend-hiking-checklist HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55771:0 - "GET /api/comments/by-post/9 HTTP/1.1" 200 OK

@@ -44,13 +44,14 @@ function onBackdrop() {
 .modal-panel {
   width: 100%;
   max-width: 480px;
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
 .modal-panel.wide {
-  max-width: 720px;
+  max-width: min(920px, calc(100vw - 2rem));
 }
 .modal-head {
   display: flex;
@@ -73,6 +74,12 @@ function onBackdrop() {
   padding: 1.25rem;
   max-height: 70vh;
   overflow: auto;
+  min-width: 0;
+}
+/* 宽弹窗：不在此层裁剪，避免 Quill 等富文本工具栏下拉被截断；整体由 .modal-mask 滚动 */
+.modal-panel.wide .modal-body {
+  max-height: none;
+  overflow: visible;
 }
 .modal-foot {
   padding: 0 1.25rem 1.25rem;

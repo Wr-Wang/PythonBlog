@@ -1,7 +1,8 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { authLogout } from "../../api";
+import { getTheme, setTheme } from "../../theme.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -13,6 +14,12 @@ const pageTitle = computed(() => {
   }
   return "管理控制台";
 });
+
+const themePref = ref(getTheme());
+
+function applyThemeFromUi() {
+  setTheme(themePref.value);
+}
 
 const nav = [
   { to: "/admin/posts", label: "文章", sub: "撰写与列表" },
@@ -63,7 +70,20 @@ async function logout() {
           <p class="top-crumb">后台管理</p>
           <h1 class="top-page-title">{{ pageTitle }}</h1>
         </div>
-        <button type="button" class="top-logout secondary" @click="logout">退出</button>
+        <div class="admin-top-actions">
+          <label class="sr-only" for="admin-theme">外观</label>
+          <select
+            id="admin-theme"
+            v-model="themePref"
+            class="toolbar-select admin-theme-select"
+            @change="applyThemeFromUi"
+          >
+            <option value="system">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+          </select>
+          <button type="button" class="top-logout secondary" @click="logout">退出</button>
+        </div>
       </header>
       <div class="admin-content">
         <router-view />
@@ -85,7 +105,7 @@ async function logout() {
   display: flex;
   flex-direction: column;
   padding: 1.35rem 0.9rem 1rem;
-  background: linear-gradient(165deg, #121922 0%, var(--surface) 48%, #151d2a 100%);
+  background: var(--admin-aside-gradient);
   border-right: 1px solid var(--border);
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
 }
@@ -233,9 +253,20 @@ async function logout() {
   gap: 1rem;
   padding: 1rem 1.5rem 1rem 1.75rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(15, 20, 25, 0.65);
+  background: var(--header-bar-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+.admin-top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.admin-theme-select {
+  max-width: 8rem;
 }
 
 .top-title-block {

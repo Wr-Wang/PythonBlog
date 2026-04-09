@@ -11,7 +11,8 @@ from app.schemas import PostAdminOut
 
 
 def serialize_post_admin(post: Post) -> PostAdminOut:
-    """ORM Post → 后台列表/详情用的 Pydantic 模型（补 category_name、tag_ids）。"""
+    """ORM Post → 后台列表/详情用的 Pydantic 模型（补 category_name、tag_ids、tag_names）。"""
+    tags_list = list(post.tags)
     return PostAdminOut(
         id=post.id,
         title=post.title,
@@ -26,7 +27,8 @@ def serialize_post_admin(post: Post) -> PostAdminOut:
         author_name=post.author.username if post.author else None,
         category_id=post.category_id,
         category_name=post.category_rel.name if post.category_rel else None,
-        tag_ids=[t.id for t in post.tags],
+        tag_ids=[t.id for t in tags_list],
+        tag_names=[t.name for t in tags_list],
     )
 
 

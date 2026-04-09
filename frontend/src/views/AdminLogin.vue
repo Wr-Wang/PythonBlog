@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { login } from "../api";
 
@@ -10,6 +10,12 @@ const username = ref("admin");
 const password = ref("");
 const err = ref("");
 const loading = ref(false);
+
+const sessionHint = computed(() =>
+  route.query.reason === "session_expired"
+    ? "登录已过期或无效，请重新登录。"
+    : "",
+);
 
 async function submit() {
   err.value = "";
@@ -48,6 +54,7 @@ async function submit() {
             required
           />
         </div>
+        <p v-if="sessionHint" class="session-hint">{{ sessionHint }}</p>
         <p v-if="err" class="error">{{ err }}</p>
         <button type="submit" :disabled="loading">{{ loading ? "登录中…" : "登录" }}</button>
       </form>
@@ -75,6 +82,15 @@ async function submit() {
   max-width: 420px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   border: 1px solid var(--border);
+}
+.session-hint {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+  color: var(--text-muted, #94a3b8);
+  background: rgba(91, 155, 213, 0.12);
+  border: 1px solid rgba(91, 155, 213, 0.35);
+  border-radius: 8px;
 }
 .login-eyebrow {
   margin: 0 0 0.35rem;

@@ -6,15 +6,52 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.content_sanitize import sanitize_post_content
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import Post, User
-from app.schemas import PostAdminOut, PostCreate, PostListItem, PostOut, PostUpdate
+from app.schemas import (
+    PostAdminListResponse,
+    PostAdminOut,
+    PostCreate,
+    PostListItem,
+    PostOut,
+    PostUpdate,
+)
 from app.services.post_service import ensure_category_exists, serialize_post_admin, set_post_tags
 
 router = APIRouter(prefix="/api/posts", tags=["posts"])
+
+
+def _search_like_escape(s: str) -> str:
+    """LIKE 通配符转义（SQL Server ESCAPE '\\'）。"""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_").replace("[", "\\[")
+
+
+@router.get("/search", response_model=list[PostListItem])
+def search_posts(
+    db: Annotated[Session, Depends(get_db)],
+    q: str = Query(..., min_length=1, max_length=200),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """站内搜索：仅已发布文章，匹配标题或摘要（SRCH-01）。"""
+    term = _search_like_escape(q.strip())
+    pat = f"%{term}%"
+    return (
+        db.query(Post)
+        .filter(
+            Post.published == True,  # noqa: E712
+            or_(Post.title.like(pat, escape="\\"), Post.excerpt.like(pat, escape="\\")),
+        )
+        .order_by(Post.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("", response_model=list[PostListItem])
@@ -30,17 +67,30 @@ def list_posts(
     return q.offset(skip).limit(limit).all()
 
 
-@router.get("/admin", response_model=list[PostAdminOut])
+@router.get("/admin", response_model=PostAdminListResponse)
 def list_all_posts(
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=500),
 ):
+    total = db.query(Post).count()
     rows = (
-        db.query(Post).order_by(Post.created_at.desc()).offset(skip).limit(limit).all()
+        db.query(Post)
+        .options(
+            joinedload(Post.author),
+            joinedload(Post.category_rel),
+            selectinload(Post.tags),
+        )
+        .order_by(Post.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
     )
-    return [serialize_post_admin(p) for p in rows]
+    return PostAdminListResponse(
+        items=[serialize_post_admin(p) for p in rows],
+        total=total,
+    )
 
 
 @router.get("/by-slug/{slug}", response_model=PostOut)
@@ -72,11 +122,12 @@ def create_post(
     if db.query(Post).filter(Post.slug == body.slug).first():
         raise HTTPException(status_code=400, detail="slug 已存在")
     ensure_category_exists(db, body.category_id)
+    content = sanitize_post_content(body.content)
     post = Post(
         title=body.title,
         slug=body.slug,
         excerpt=body.excerpt,
-        content=body.content,
+        content=content,
         published=body.published,
         author_id=current.id,
         category_id=body.category_id,
@@ -108,6 +159,8 @@ def update_post(
             raise HTTPException(status_code=400, detail="slug 已存在")
     if "category_id" in data:
         ensure_category_exists(db, data["category_id"])
+    if "content" in data and data["content"] is not None:
+        data["content"] = sanitize_post_content(data["content"])
     for k, v in data.items():
         setattr(post, k, v)
     set_post_tags(db, post, tag_ids)

@@ -1,3 +1,4 @@
+/* 设计令牌（HUX-01）：亮/暗由 data-theme 切换，默认与暗色一致 */
 :root {
   --bg: #0f1419;
   --surface: #1a2332;
@@ -7,6 +8,12 @@
   --accent-hover: #7eb3e8;
   --border: #2d3a4d;
   --danger: #e57373;
+  --btn-fg: #0f1419;
+  --table-header-start: #1c2636;
+  --header-bar-bg: rgba(15, 20, 25, 0.65);
+  --admin-aside-gradient: linear-gradient(165deg, #121922 0%, var(--surface) 48%, #151d2a 100%);
+  --code-bg: var(--surface);
+  --emoji-bar-bg: rgba(0, 0, 0, 0.12);
   /* 正文与评论中的 Unicode 表情需彩色字体回退，否则易显示为方框或异常字形 */
   --font-sans: "Segoe UI", system-ui, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol",
     "Apple Color Emoji", "Noto Color Emoji", emoji;
@@ -14,6 +21,33 @@
   line-height: 1.6;
   color: var(--text);
   background: var(--bg);
+}
+
+:root[data-theme="light"] {
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --text: #1a2332;
+  --muted: #5c6b7a;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --border: #e2e8f0;
+  --danger: #dc2626;
+  --btn-fg: #ffffff;
+  --table-header-start: #e8eef4;
+  --header-bar-bg: rgba(255, 255, 255, 0.82);
+  --admin-aside-gradient: linear-gradient(165deg, #e8eef4 0%, var(--surface) 48%, #dde4ee 100%);
+  --code-bg: #f1f5f9;
+  --emoji-bar-bg: rgba(0, 0, 0, 0.06);
+}
+
+:root[data-font-size="sm"] {
+  font-size: 15px;
+}
+:root[data-font-size="md"] {
+  font-size: 16px;
+}
+:root[data-font-size="lg"] {
+  font-size: 18px;
 }
 
 * {
@@ -40,7 +74,7 @@ button {
   border-radius: 8px;
   padding: 0.5rem 1rem;
   background: var(--accent);
-  color: #0f1419;
+  color: var(--btn-fg);
   font-weight: 600;
 }
 button:hover {
@@ -114,6 +148,35 @@ textarea {
   align-items: center;
 }
 
+.header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.toolbar-select {
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  max-width: 7.5rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .post-list article {
   padding: 1.25rem 0;
   border-bottom: 1px solid var(--border);
@@ -140,16 +203,139 @@ textarea {
   margin: 0.75em 0;
 }
 .prose :deep(code) {
-  background: var(--surface);
+  background: var(--code-bg);
   padding: 0.15em 0.4em;
   border-radius: 4px;
   font-size: 0.9em;
 }
 .prose :deep(pre) {
-  background: var(--surface);
+  background: var(--code-bg);
   padding: 1rem;
   border-radius: 8px;
   overflow: auto;
+}
+.prose :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.prose :deep(video) {
+  max-width: 100%;
+  border-radius: 8px;
+}
+.prose :deep(iframe) {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.prose :deep(iframe[src*="youtube"]),
+.prose :deep(iframe[src*="youtu.be"]),
+.prose :deep(iframe[src*="bilibili"]),
+.prose :deep(iframe[src*="vimeo"]) {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  min-height: 12rem;
+}
+
+/* 正文区易读宽度（HUX-04） */
+.article-body {
+  max-width: 42rem;
+}
+
+/* 阅读进度条（UXR-01） */
+.read-progress-track {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 10000;
+  background: transparent;
+  pointer-events: none;
+}
+.read-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: width 0.1s linear;
+}
+
+/* 骨架屏（HUX-02） */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.skeleton-line {
+  height: 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.65rem;
+  background: linear-gradient(
+    90deg,
+    var(--surface) 20%,
+    color-mix(in srgb, var(--border) 70%, var(--surface)) 50%,
+    var(--surface) 80%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.15s ease-in-out infinite;
+}
+.skeleton-line.short {
+  width: 55%;
+}
+.skeleton-line.title {
+  height: 1.35rem;
+  width: 85%;
+}
+.skeleton-block {
+  height: 5rem;
+  border-radius: 10px;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(
+    90deg,
+    var(--surface) 20%,
+    color-mix(in srgb, var(--border) 70%, var(--surface)) 50%,
+    var(--surface) 80%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.15s ease-in-out infinite;
+}
+
+/* 空状态（HUX-03） */
+.empty-state {
+  text-align: center;
+  padding: 2.75rem 1.25rem;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
+}
+.empty-state-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.empty-state p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line,
+  .skeleton-block {
+    animation: none !important;
+    background: var(--border);
+  }
+  .read-progress-bar {
+    transition: none;
+  }
 }
 
 .card {
@@ -248,7 +434,7 @@ textarea {
   z-index: 1;
   font-weight: 600;
   color: var(--muted);
-  background: linear-gradient(180deg, #1c2636 0%, var(--surface) 100%);
+  background: linear-gradient(180deg, var(--table-header-start) 0%, var(--surface) 100%);
   white-space: nowrap;
   box-shadow: 0 1px 0 var(--border);
 }
@@ -263,6 +449,31 @@ textarea {
 
 .admin-data-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* 文章管理：操作列固定在滚动区域最右侧 */
+.admin-data-table-posts th:last-child,
+.admin-data-table-posts td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: -6px 0 10px -6px color-mix(in srgb, var(--bg) 65%, transparent);
+  min-width: 7.5rem;
+  vertical-align: top;
+}
+
+.admin-data-table-posts thead th:last-child {
+  z-index: 4;
+  top: 0;
+  background: linear-gradient(180deg, var(--table-header-start) 0%, var(--surface) 100%);
+  box-shadow:
+    -6px 0 10px -6px color-mix(in srgb, var(--bg) 65%, transparent),
+    0 1px 0 var(--border);
+}
+
+.admin-data-table-posts tbody tr:hover td:last-child {
+  background: color-mix(in srgb, var(--text) 5%, var(--surface));
 }
 
 .admin-table-empty {

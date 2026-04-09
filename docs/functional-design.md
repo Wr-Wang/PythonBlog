@@ -1,6 +1,6 @@
 # PythonBlog 详细功能设计
 
-**文档版本：** 1.0  
+**文档版本：** 1.1  
 **对应需求：** [`requirements.md`](./requirements.md) **v2.3**（基线 §3 为设计落地范围；扩展 §4 为规划级设计说明）  
 **对应架构：** [`architecture.md`](./architecture.md)  
 
@@ -15,7 +15,8 @@
 | 类别 | 内容 |
 |------|------|
 | **必须实现（基线）** | 与需求 §3 中 SYS / AUTH / PUB / ADM-* / UPL / FE / DEP 一致，与当前仓库实现对齐。 |
-| **规划项** | 需求 §4（RBAC、MOD、DISC、SRCH、SEC、OPS、MED、IMG、VID、CNT、ACC、UXR、EDW、GRO、PRV、AXP、HUX 等）在本文 **§11** 作概要设计方向，详细规格待排期后单独立项。 |
+| **Phase D（已实现）** | 阅读体验与设计令牌（对应需求 §4.12 **UXR**、§4.17 **HUX** 中已落地子集），见本文 **§12.3**。 |
+| **规划项** | 需求 §4 其余条目（RBAC、MOD、DISC、SRCH、SEC、OPS、MED、IMG、VID、CNT、ACC、UXR/HUX 未实现部分等）在本文 **§14** 作概要设计方向，详细规格待排期后单独立项。 |
 
 ### 1.2 术语与角色
 
@@ -40,7 +41,7 @@
 | **生产（同机）** | 单服务器部署 | Uvicorn 或 IIS HttpPlatformHandler 等（见部署文档） | `npm run build` 输出 `frontend/dist`，由 FastAPI `mount_frontend_dist` 同域托管 | 生产 SQL Server | 站点根路径 + `/api` |
 | **生产（分域）** | 前后端分离 | 公网 API 域名 | 独立 CDN/静态托管 | 生产库 | 需配置 `CORS_ORIGINS` |
 
-**说明：** 具体 IIS 站点、端口、HTTPS 证书与回收应用池等以 [`Windows11-IIS部署www-blogapi-8081.md`](./Windows11-IIS部署www-blogapi-8081.md) 等同目录文档为准。
+**说明：** 具体 IIS 站点、端口、HTTPS 证书与回收应用池等以 [`后端-IIS部署说明.md`](./后端-IIS部署说明.md) 等同目录文档为准。
 
 ### 2.3 依赖软件与版本（参考）
 
@@ -256,6 +257,48 @@ ADM-C-01～ADM-C-02，ADM-T-01。
 - **开发**：`npm run dev`，环境变量与代理见 [`vite.config.js`](../frontend/vite.config.js)。  
 - **生产**：`npm run build` → `frontend/dist`；若目录存在，FastAPI 挂载 SPA 并 History fallback（DEP-01）；否则根路径 JSON 提示（DEP-02）。
 
+### 12.3 Phase D：阅读体验与设计令牌（需求 UXR / HUX，已实现）
+
+对应 **需求 §4.12（UXR）**、**§4.17（HUX）** 中已在仓库落地的子集；无新增后端接口，行为以代码为准。
+
+#### 12.3.1 主题与字号（UXR-02、HUX-01）
+
+| 项 | 设计要点 |
+|----|----------|
+| **存储** | `localStorage` 键：`blog_theme`（`system` \| `light` \| `dark`）、`blog_font_size`（`sm` \| `md` \| `lg`）。 |
+| **DOM** | `document.documentElement`：`data-theme` 为解析后的 **`light` / `dark`**（供 CSS 变量切换）；`data-theme-pref` 为用户选择（含 `system`）；`data-font-size` 为字号档位。 |
+| **跟随系统** | `system` 时根据 `prefers-color-scheme` 解析为亮/暗；监听系统主题变化并在偏好为 `system` 时重算。 |
+| **首屏** | [`frontend/index.html`](../frontend/index.html) 内联脚本在样式前读取上述键，减轻主题/字号闪烁（FOUC）。 |
+| **初始化** | [`frontend/src/main.js`](../frontend/src/main.js) 在 `createApp` 前调用 [`theme.js`](../frontend/src/theme.js) 的 `initTheme()`、`initFontSize()`。 |
+| **界面入口** | 前台 [`App.vue`](../frontend/src/App.vue) 顶栏；后台 [`AdminLayout.vue`](../frontend/src/views/admin/AdminLayout.vue) 顶栏：外观下拉框与前台一致。 |
+
+#### 12.3.2 全局样式令牌（HUX-01～HUX-04）
+
+[`frontend/src/style.css`](../frontend/src/style.css) 在 `:root` 定义默认（与深色一致）变量，在 `[data-theme="light"]` 覆盖浅色；并包含：
+
+- 组件级语义变量（如 `--btn-fg`、`--code-bg`、`--emoji-bar-bg`、`--table-header-start`、`--header-bar-bg`、`--admin-aside-gradient` 等），供正文、按钮、后台表格与侧栏随主题一致。
+- **易读宽度**：`.article-body` 限制正文区域最大宽度（约 `42rem`）。
+- **骨架屏**：`.skeleton-line`、`.skeleton-block` 与闪烁动画；**空状态**：`.empty-state`、`.empty-state-title`。
+- **阅读进度条**：`.read-progress-track` / `.read-progress-bar`（固定于视口顶部，宽度由页面滚动比例驱动）。
+- **无障碍**：`.sr-only`；`prefers-reduced-motion: reduce` 时弱化骨架动画与进度条过渡，避免干扰系统「减少动态效果」设置。
+
+#### 12.3.3 阅读时间与进度（UXR-01）
+
+| 项 | 设计要点 |
+|----|----------|
+| **估算** | [`frontend/src/utils/readingTime.js`](../frontend/src/utils/readingTime.js)：`estimateReadingMinutes(text)`，按去空白后的字符长度、**约 450 字/分钟** 向上取整，最少 **1** 分钟。 |
+| **展示** | [`PostView.vue`](../frontend/src/views/PostView.vue) 在日期元信息旁展示「约 *n* 分钟读完」；正文加载完成后顶部显示阅读进度条，随 `window` 滚动更新。 |
+| **加载态** | 文章详情在请求期间展示骨架屏（占位图块与标题行），替代纯文案「加载中…」。 |
+
+#### 12.3.4 列表与搜索页（HUX-02、HUX-03）
+
+- **首页** [`HomeView.vue`](../frontend/src/views/HomeView.vue)：列表加载中显示骨架屏；无公开文章时使用 `.empty-state` 说明文案。  
+- **搜索** [`SearchView.vue`](../frontend/src/views/SearchView.vue)：有关键词且请求中显示骨架屏；无结果时使用空状态卡片；其余逻辑仍与 `GET /api/posts/search` 一致（见 Phase C / 需求 SRCH）。
+
+#### 12.3.5 验收对应
+
+与需求 **UXR-01、UXR-02** 及 **HUX-01～HUX-04** 中已由本阶段覆盖的条目对照；未实现部分（如服务端 `reading_minutes` 字段、更多 HUX 组件规范等）仍归 **§14** 规划。
+
 ---
 
 ## 13. 非功能设计摘要（对应需求 §6）
@@ -265,7 +308,7 @@ ADM-C-01～ADM-C-02，ADM-T-01。
 | **安全** | 密码哈希、JWT、HTTPS 部署侧；无内置速率限制 | SEC-*、CSP/iframe 白名单 |
 | **性能** | 分页、ORM；无强制缓存 | 索引、N+1、CDN、图片懒加载 |
 | **可用性** | `detail` 错误体；503 DB 门闸 | OPS 健康检查扩展 |
-| **体验/HUX** | 未强制设计体系 | HUX 令牌、空状态、骨架屏等 |
+| **体验/HUX** | Phase D：CSS 变量亮/暗、字号档位、骨架屏、空状态、阅读时间/进度（见 §12.3） | HUX 其余规范（触控最小目标等）、服务端阅读时长字段 |
 
 ---
 
@@ -282,8 +325,9 @@ ADM-C-01～ADM-C-02，ADM-T-01。
 | **SEC** | 中间件限流（IP+路径）；429。 |
 | **OPS** | 健康检查附带版本号、DB 延迟。 |
 | **MED/IMG/VID/CNT** | 媒体表、转码任务队列（可选）、Markdown 扩展与白名单 iframe。 |
-| **UXR/EDW/GRO/PRV/AXP** | 阅读时间字段或前端计算；定时发布调度器；相关文章算法；Cookie 横幅组件；PWA manifest；i18n 资源文件。 |
-| **HUX** | CSS 变量主题；空/加载/错误组件规范；触控最小尺寸。 |
+| **UXR** | **已部分落地（Phase D）：** 前端估算阅读分钟数、顶栏阅读进度条、主题/字号与 `prefers-color-scheme`（见 §12.3）。**仍规划：** 可选服务端 `reading_minutes` 字段；定时发布（EDW）、相关文章（GRO）、Cookie/PWA/i18n（PRV/AXP）等。 |
+| **EDW/GRO/PRV/AXP** | 定时发布调度器；相关文章算法；Cookie 横幅组件；PWA manifest；i18n 资源文件。 |
+| **HUX** | **已部分落地（Phase D）：** 设计令牌、骨架屏、空状态、易读版式、减少动态效果（见 §12.3）。**仍规划：** 独立空/错组件库、触控最小尺寸等统一规范。 |
 
 ---
 
@@ -297,6 +341,7 @@ ADM-C-01～ADM-C-02，ADM-T-01。
 | §3.4～3.7 ADM | §8～§10 | 后台 CRUD |
 | §3.8 UPL | §11 | 上传 |
 | §3.9～3.10 FE/DEP | §12 | 路由与构建 |
+| §4.12 UXR、§4.17 HUX（已落地子集） | §12.3 | Phase D：主题、字号、阅读时间/进度、骨架与空状态 |
 | §8.1 基线验收 | 各节「验收对应」 | 端到端用例建议与 [`requirements.md`](./requirements.md) §8.1 一致 |
 
 ---
@@ -304,6 +349,7 @@ ADM-C-01～ADM-C-02，ADM-T-01。
 ## 16. 文档维护
 
 - 需求变更（[`requirements.md`](./requirements.md)）或架构变更（[`architecture.md`](./architecture.md)）时，更新本设计中的 **环境、接口、规则** 描述。  
-- **扩展需求** 一旦纳入基线，应将对应章节从 §14 下沉为与 §4～§12 同级的详细设计，并更新版本号。
+- **扩展需求** 一旦纳入基线，应将对应章节从 §14 下沉为与 §4～§12 同级的详细设计，并更新版本号。  
+- **Phase D** 若继续扩展（如服务端阅读时长、HUX 组件库），在 §12.3 增补子节并同步 §14 规划表。
 
 *本文档随代码演进更新。*

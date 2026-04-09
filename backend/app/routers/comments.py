@@ -6,9 +6,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.rate_limit import require_rate_limit_comment_public
 from app.deps import get_current_user
 from app.models import Comment, Post, User
 from app.schemas import (
@@ -18,18 +20,20 @@ from app.schemas import (
     CommentCreatePublic,
     CommentPublicOut,
 )
+from app.schemas.page import Page
 from app.services.comment_service import comment_to_admin_out
 
 router = APIRouter(prefix="/api/comments", tags=["comments"])
 
 
-@router.get("/admin", response_model=list[CommentAdminOut])
+@router.get("/admin", response_model=Page[CommentAdminOut])
 def list_comments_admin(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=500),
 ):
+    total = db.query(Comment).count()
     rows = (
         db.query(Comment, Post.title)
         .join(Post, Comment.post_id == Post.id)
@@ -38,7 +42,10 @@ def list_comments_admin(
         .limit(limit)
         .all()
     )
-    return [comment_to_admin_out(c, title) for c, title in rows]
+    return Page(
+        items=[comment_to_admin_out(c, title) for c, title in rows],
+        total=total,
+    )
 
 
 @router.get("/admin/{comment_id}", response_model=CommentAdminOut)
@@ -81,6 +88,7 @@ def create_comment_admin(
         parent_id=body.parent_id,
         author_name=body.author_name,
         content=body.content,
+        status=body.status,
     )
     db.add(c)
     db.commit()
@@ -135,7 +143,10 @@ def list_comments_by_post_public(
         raise HTTPException(status_code=404, detail="文章不存在")
     return (
         db.query(Comment)
-        .filter(Comment.post_id == post_id)
+        .filter(
+            Comment.post_id == post_id,
+            or_(Comment.status == "approved", Comment.status.is_(None)),
+        )
         .order_by(Comment.created_at.asc())
         .all()
     )
@@ -145,6 +156,7 @@ def list_comments_by_post_public(
 def create_comment_public(
     post_id: int,
     body: CommentCreatePublic,
+    _: Annotated[None, Depends(require_rate_limit_comment_public)],
     db: Annotated[Session, Depends(get_db)],
 ):
     post = db.query(Post).filter(Post.id == post_id).first()
@@ -163,6 +175,7 @@ def create_comment_public(
         parent_id=body.parent_id,
         author_name=body.author_name,
         content=body.content,
+        status="pending",
     )
     db.add(c)
     db.commit()

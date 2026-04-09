@@ -118,6 +118,7 @@ BEGIN
         parent_id   INT            NULL,
         author_name NVARCHAR(128)  NOT NULL,
         content     NVARCHAR(MAX)  NOT NULL,
+        status      NVARCHAR(20)   NOT NULL CONSTRAINT DF_comments_status DEFAULT (N'approved'),
         created_at  DATETIME2(3)   NOT NULL,
         CONSTRAINT PK_comments PRIMARY KEY CLUSTERED (id),
         CONSTRAINT FK_comments_posts FOREIGN KEY (post_id)
@@ -127,6 +128,16 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_comments_post_id ON dbo.comments (post_id);
     CREATE NONCLUSTERED INDEX IX_comments_parent_id ON dbo.comments (parent_id);
+END
+GO
+
+/* ========== 旧库补列：dbo.comments.status ========== */
+IF OBJECT_ID(N'dbo.comments', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.comments', N'status') IS NULL
+BEGIN
+    ALTER TABLE dbo.comments
+    ADD status NVARCHAR(20) NOT NULL
+        CONSTRAINT DF_comments_status DEFAULT (N'approved');
 END
 GO
 
@@ -178,6 +189,7 @@ INSERT INTO @d (t, c, v) VALUES
 (N'comments', N'parent_id', N'父评论 id；为空表示顶层评论；无外键级联删除'),
 (N'comments', N'author_name', N'评论者显示名'),
 (N'comments', N'content', N'评论正文'),
+(N'comments', N'status', N'审核状态：pending/approved/rejected；公开接口仅展示 approved'),
 (N'comments', N'created_at', N'发表时间');
 
 DECLARE @t SYSNAME, @c SYSNAME, @v NVARCHAR(1000);

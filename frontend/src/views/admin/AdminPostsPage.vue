@@ -1,8 +1,12 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { marked } from "marked";
+import AdminPaginationBar from "../../components/AdminPaginationBar.vue";
 import BaseModal from "../../components/BaseModal.vue";
 import ConfirmDialog from "../../components/ConfirmDialog.vue";
+import RichTextEditor from "../../components/RichTextEditor.vue";
+import { postBodyLooksLikeHtml } from "../../utils/postBodyRender";
 import {
   adminListPosts,
   createPost,
@@ -15,6 +19,9 @@ import {
 
 const router = useRouter();
 const rows = ref([]);
+const total = ref(0);
+const page = ref(1);
+const pageSize = ref(20);
 const categories = ref([]);
 const tags = ref([]);
 const loading = ref(true);
@@ -52,8 +59,8 @@ async function loadMeta() {
     listCategoriesAdmin({ limit: 500 }),
     listTagsAdmin({ limit: 500 }),
   ]);
-  categories.value = c.data;
-  tags.value = t.data;
+  categories.value = c.data.items ?? c.data;
+  tags.value = t.data.items ?? t.data;
 }
 
 async function load() {
@@ -61,8 +68,20 @@ async function load() {
   err.value = "";
   try {
     await loadMeta();
-    const { data } = await adminListPosts({ limit: 500 });
-    rows.value = data;
+    let p = page.value;
+    const skip = (p - 1) * pageSize.value;
+    let { data } = await adminListPosts({ skip, limit: pageSize.value });
+    const maxP = Math.max(1, Math.ceil(data.total / pageSize.value) || 1);
+    if (p > maxP && data.total >= 0) {
+      page.value = maxP;
+      p = maxP;
+      ({ data } = await adminListPosts({
+        skip: (p - 1) * pageSize.value,
+        limit: pageSize.value,
+      }));
+    }
+    rows.value = data.items;
+    total.value = data.total;
   } catch (e) {
     err.value = e.response?.data?.detail || e.message || "加载失败";
     if (e.response?.status === 401) {
@@ -74,7 +93,17 @@ async function load() {
   }
 }
 
-onMounted(load);
+watch(page, load, { immediate: true });
+
+function setPage(v) {
+  page.value = v;
+}
+
+function onPageSizeChange(newSize) {
+  pageSize.value = newSize;
+  if (page.value !== 1) page.value = 1;
+  else load();
+}
 
 function openCreate() {
   editingId.value = null;
@@ -97,7 +126,7 @@ function openEdit(row) {
   fTitle.value = row.title;
   fSlug.value = row.slug;
   fExcerpt.value = row.excerpt || "";
-  fContent.value = row.content;
+  fContent.value = normalizeEditorContent(row.content);
   fPublished.value = row.published;
   fCategoryId.value = row.category_id != null ? String(row.category_id) : "";
   fTagIds.value = [...(row.tag_ids || [])];
@@ -142,7 +171,7 @@ async function saveForm() {
     cover_image_url: fCoverUrl.value.trim() || null,
     tag_ids: [...fTagIds.value],
   };
-  if (!body.title || !body.slug || !body.content) {
+  if (!body.title || !body.slug || isRichTextEmpty(body.content)) {
     formErr.value = "请填写标题、slug 与正文";
     return;
   }
@@ -180,38 +209,65 @@ async function confirmDelete() {
   }
 }
 
-function fmtTags(ids) {
-  if (!ids?.length) return "—";
-  return ids.join(", ");
+/** 旧 Markdown 正文打开编辑时转为 HTML，便于在 Quill 中继续编辑 */
+function normalizeEditorContent(raw) {
+  if (raw == null || raw === "") return "";
+  if (postBodyLooksLikeHtml(raw)) return raw;
+  try {
+    return marked.parse(String(raw), { async: false });
+  } catch {
+    return `<p>${String(raw)}</p>`;
+  }
+}
+
+function isRichTextEmpty(html) {
+  if (html == null || !String(html).trim()) return true;
+  const t = String(html)
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/<p>\s*<\/p>/gi, "")
+    .replace(/<div>\s*<\/div>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .trim();
+  return !t;
 }
 </script>
 
 <template>
   <div class="admin-page">
     <div class="admin-toolbar">
-      <p class="admin-toolbar-desc">撰写与编辑正文、分类、标签及封面；访客仅可见已发布文章。</p>
+      <p class="admin-toolbar-desc">
+        正文为富文本（图文、视频嵌入、表情）；旧文章若为 Markdown，打开编辑时会自动转为 HTML 保存。访客仅可见已发布文章。
+      </p>
       <div class="admin-toolbar-actions">
         <button type="button" @click="openCreate">新增文章</button>
       </div>
     </div>
+    <AdminPaginationBar
+      v-if="!loading && !err && total > 0"
+      :total="total"
+      :page="page"
+      :page-size="pageSize"
+      @update:page="setPage"
+      @page-size-change="onPageSizeChange"
+    />
     <p v-if="loading" class="admin-loading">加载中…</p>
     <p v-else-if="err" class="error">{{ err }}</p>
     <div v-else class="admin-table-scroll">
-      <table class="admin-data-table">
+      <table class="admin-data-table admin-data-table-posts">
         <thead>
           <tr>
-            <th>id</th>
-            <th>title</th>
-            <th>slug</th>
-            <th>excerpt</th>
-            <th>published</th>
-            <th>cover_image_url</th>
-            <th>created_at</th>
-            <th>updated_at</th>
-            <th>author_id</th>
-            <th>category_id</th>
-            <th>category_name</th>
-            <th>tag_ids</th>
+            <th>编号</th>
+            <th>标题</th>
+            <th>URL 标识</th>
+            <th>摘要</th>
+            <th>发布</th>
+            <th>封面图 URL</th>
+            <th>创建时间</th>
+            <th>更新时间</th>
+            <th>作者</th>
+            <th>分类</th>
+            <th class="col-tags">标签</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -225,10 +281,14 @@ function fmtTags(ids) {
             <td class="admin-cell-clip admin-mono">{{ r.cover_image_url || "—" }}</td>
             <td class="admin-mono">{{ r.created_at }}</td>
             <td class="admin-mono">{{ r.updated_at }}</td>
-            <td>{{ r.author_id ?? "—" }}</td>
-            <td>{{ r.category_id ?? "—" }}</td>
+            <td>{{ r.author_name || "—" }}</td>
             <td>{{ r.category_name || "—" }}</td>
-            <td class="admin-mono">{{ fmtTags(r.tag_ids) }}</td>
+            <td class="tags-cell">
+              <template v-if="r.tag_names?.length">
+                <span v-for="(name, i) in r.tag_names" :key="i" class="tag-pill">{{ name }}</span>
+              </template>
+              <span v-else class="tags-empty">—</span>
+            </td>
             <td class="admin-ops">
               <button type="button" class="secondary" @click="openEdit(r)">编辑</button>
               <button type="button" class="danger" @click="askDelete(r)">删除</button>
@@ -244,10 +304,10 @@ function fmtTags(ids) {
         <label>标题 <input v-model="fTitle" @blur="suggestSlug" /></label>
         <label>slug <input v-model="fSlug" /></label>
         <label>摘要 <input v-model="fExcerpt" /></label>
-        <label class="full">
-          正文
-          <textarea v-model="fContent" rows="10" />
-        </label>
+        <div class="full rte-field">
+          <span class="rte-label">正文（富文本）</span>
+          <RichTextEditor v-model="fContent" />
+        </div>
         <label>分类
           <select v-model="fCategoryId">
             <option value="">—</option>
@@ -258,10 +318,11 @@ function fmtTags(ids) {
         </label>
         <div class="form-field full">
           <span class="form-field-label">标签（多选）</span>
-          <div class="tags-grid" role="group" :aria-label="'标签（多选）'">
+          <div class="tags-grid" role="group" aria-label="标签（多选）">
             <label v-for="t in tags" :key="t.id" class="tag-chk">
               <input type="checkbox" :checked="tagChecked(t.id)" @change="toggleTag(t.id)" />
-              <span class="tag-chk-text" :title="`${t.id} ${t.name}`">{{ t.id }} {{ t.name }}</span>
+              <span class="tag-chip-name">{{ t.name }}</span>
+              <span class="tag-chip-slug" :title="'URL 标识：' + t.slug">{{ t.slug }}</span>
             </label>
           </div>
         </div>
@@ -300,6 +361,7 @@ function fmtTags(ids) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem 1rem;
+  min-width: 0;
 }
 .form-grid label:not(.chk-inline) {
   display: flex;
@@ -321,33 +383,92 @@ function fmtTags(ids) {
   color: var(--muted);
 }
 .tags-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
-  gap: 0.35rem 0.65rem;
-  align-items: center;
-  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: stretch;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  background: var(--emoji-bar-bg);
   min-width: 0;
 }
 .tag-chk {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   margin: 0;
-  min-width: 0;
-  min-height: 1.75rem;
-  font-size: 0.875rem;
-  line-height: 1.35;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  font-size: 0.8125rem;
+  line-height: 1.3;
   cursor: pointer;
+  max-width: 100%;
 }
-.tag-chk-text {
-  min-width: 0;
+.tag-chk:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+.tag-chip-name {
+  font-weight: 600;
+  color: var(--text);
+  max-width: 7rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.tag-chip-slug {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rte-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 0.35rem;
+}
+.rte-label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.tag-pill {
+  display: inline-block;
+  margin: 0.15rem 0.35rem 0.15rem 0;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--text);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.tags-cell {
+  max-width: 14rem;
+  min-width: 6rem;
+  vertical-align: top;
+  line-height: 1.5;
+}
+.tags-empty {
+  color: var(--muted);
+}
+.admin-data-table .col-tags {
+  min-width: 7rem;
 }
 .preview img {
   max-width: 100%;
