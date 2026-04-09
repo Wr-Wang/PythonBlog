@@ -1,0 +1,13 @@
+# 仓库根：统一忽略各子目录常见生成物与密钥（子目录另有 .gitignore 时与之叠加）
+backend/.env
+backend/venv/
+backend/.idea/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/uploads/
+
+frontend/node_modules/
+frontend/dist/
+
+.DS_Store
+Thumbs.db
