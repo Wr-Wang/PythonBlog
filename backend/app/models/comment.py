@@ -25,6 +25,8 @@ class Comment(Base):
     # 须 NVARCHAR(MAX)：UnicodeText 在 MSSQL 上曾生成 NTEXT，emoji 易异常；显式 NVARCHAR(None)=MAX
     author_name: Mapped[str] = mapped_column(NVARCHAR(128), nullable=False)
     content: Mapped[str] = mapped_column(NVARCHAR(None), nullable=False)
+    # pending=待审核；approved=前台可见；rejected=拒绝（MOD-01）
+    status: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, default="approved")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_shanghai_naive)
 
     post: Mapped["Post"] = relationship("Post", back_populates="comments")

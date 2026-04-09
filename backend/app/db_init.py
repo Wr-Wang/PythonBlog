@@ -3,18 +3,35 @@
 
 在应用 lifespan 中调用；与 FastAPI 应用对象解耦，便于测试时单独执行。
 """
+from __future__ import annotations
+
+import random
+from collections import defaultdict
+
 import app.models  # noqa: F401 — 加载包内全部 ORM，确保 Base.metadata 含所有表
 
 from app.auth_utils import hash_password
 from app.config import settings
+from app.content_sanitize import sanitize_post_content
 from app.database import Base, SessionLocal, engine
-from app.db_migrate import ensure_comments_unicode_columns, ensure_posts_extra_columns
-from app.models import Category, Post, Tag, User
+from app.db_migrate import (
+    ensure_comment_status_column,
+    ensure_comments_unicode_columns,
+    ensure_posts_extra_columns,
+)
+from app.models import Category, Comment, Post, Tag, User
 
 DEFAULT_CATEGORIES = [
     {"name": "技术", "slug": "tech"},
     {"name": "生活", "slug": "life"},
     {"name": "随笔", "slug": "notes"},
+    {"name": "读书", "slug": "books"},
+    {"name": "旅行", "slug": "travel"},
+    {"name": "摄影", "slug": "photo"},
+    {"name": "音乐", "slug": "music"},
+    {"name": "游戏", "slug": "game"},
+    {"name": "效率", "slug": "productivity"},
+    {"name": "开源", "slug": "opensource"},
 ]
 
 DEFAULT_TAGS = [
@@ -22,7 +39,95 @@ DEFAULT_TAGS = [
     {"name": "Vue", "slug": "vue"},
     {"name": "Python", "slug": "python"},
     {"name": "部署", "slug": "deploy"},
+    {"name": "SQL Server", "slug": "sqlserver"},
+    {"name": "CSS", "slug": "css"},
+    {"name": "Docker", "slug": "docker"},
+    {"name": "测试", "slug": "testing"},
+    {"name": "性能", "slug": "performance"},
+    {"name": "安全", "slug": "security"},
 ]
+
+# 幂等标记：存在则不再批量插入演示评论（后台可见一条 status=rejected 的占位行，可自行删除后重新种子）
+_SEED_COMMENTS_MARKER_AUTHOR = "__seed_marker__"
+_SEED_COMMENTS_MARKER_CONTENT = "seed-demo-comments-v1"
+
+
+def _ensure_demo_comments(db, user_posts: list[Post]) -> None:
+    if db.query(Comment).filter(Comment.author_name == _SEED_COMMENTS_MARKER_AUTHOR).first():
+        return
+    posts = [p for p in user_posts if p.published]
+    if not posts:
+        posts = user_posts
+    if not posts:
+        return
+
+    rng = random.Random(42)
+    post_ids = [p.id for p in posts]
+    top_by_post: defaultdict[int, list[int]] = defaultdict(list)
+
+    authors = [
+        "访客",
+        "小明",
+        "匿名用户",
+        "老读者",
+        "路过的",
+        "张三",
+        "李四",
+        "阿伟",
+        "前端练习生",
+        "运维老王",
+    ]
+    bodies = [
+        "写得清楚，收藏了。",
+        "有个地方没太看懂，能再展开讲讲吗？",
+        "和我想法一致，补充一点实践经验。",
+        "配图不错，排版也舒服。",
+        "感谢分享，已转发给朋友。",
+        "这里是不是笔误？日期好像对不上。",
+        "期待下一篇。",
+        "我用过类似方案，坑主要在权限配置。",
+        "移动端阅读体验也很好。",
+        "代码片段对我帮助很大。",
+        "有没有参考资料链接？",
+        "测试环境 OK，生产再观察一下。",
+        "思路打开了，回头试试。",
+        "不同意某段结论，理由如下……",
+        "沙发！",
+    ]
+    status_weights = (["approved"] * 7) + (["pending"] * 2) + (["rejected"] * 1)
+
+    for i in range(100):
+        pid = rng.choice(post_ids)
+        parent_id = None
+        tops = top_by_post[pid]
+        if tops and rng.random() < 0.38:
+            parent_id = rng.choice(tops)
+        st = rng.choice(status_weights)
+        author = rng.choice(authors)
+        content = f"{rng.choice(bodies)}（#{i + 1}）"
+        if rng.random() < 0.12:
+            content = "😀 " + content
+        c = Comment(
+            post_id=pid,
+            parent_id=parent_id,
+            author_name=author,
+            content=content,
+            status=st,
+        )
+        db.add(c)
+        db.flush()
+        if parent_id is None:
+            top_by_post[pid].append(c.id)
+
+    db.add(
+        Comment(
+            post_id=posts[0].id,
+            parent_id=None,
+            author_name=_SEED_COMMENTS_MARKER_AUTHOR,
+            content=_SEED_COMMENTS_MARKER_CONTENT,
+            status="rejected",
+        )
+    )
 
 
 def init_db() -> None:
@@ -35,6 +140,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     ensure_posts_extra_columns(engine)
     ensure_comments_unicode_columns(engine)
+    ensure_comment_status_column(engine)
 
     admin_user = settings.admin_username
     admin_pass = settings.admin_password
@@ -86,7 +192,7 @@ def init_db() -> None:
                 title=title,
                 slug=slug,
                 excerpt=excerpt,
-                content=content,
+                content=sanitize_post_content(content),
                 published=published,
                 author_id=user.id,
                 category_id=category_by_slug[category_slug].id if category_slug else None,
@@ -139,6 +245,122 @@ def init_db() -> None:
             category_slug="notes",
             tag_slugs=["python"],
         )
+        ensure_post(
+            title="富文本示例：排版与嵌入视频",
+            slug="rich-editor-demo",
+            excerpt="图文、列表与在线视频嵌入示例（后台富文本）。",
+            content=(
+                "<p>本篇为<strong>富文本 HTML</strong>示例，支持<em>强调</em>与列表。</p>"
+                "<h2>使用说明</h2>"
+                "<ul>"
+                "<li>图片：工具栏「图片」上传后插入；</li>"
+                "<li>视频：工具栏「视频」粘贴 YouTube / B 站等嵌入链接。</li>"
+                "</ul>"
+                "<p>下方为示例嵌入（若网络限制可能无法播放）：</p>"
+                '<p><iframe width="560" height="315" '
+                'src="https://www.youtube.com/embed/dQw4w9WgXcQ" '
+                'title="示例视频" frameborder="0" allowfullscreen></iframe></p>'
+                "<p>表情：😀 🎉 ✨</p>"
+            ),
+            published=True,
+            category_slug="tech",
+            tag_slugs=["vue", "fastapi"],
+        )
+        ensure_post(
+            title="富文本：外链图片与超链接",
+            slug="rich-images-links",
+            excerpt="正文中图片与外部链接的展示效果。",
+            content=(
+                "<p>以下为占位图（HTTPS 外链），用于验证正文内图片样式：</p>"
+                '<p><img src="https://picsum.photos/seed/pythonblog/720/360" '
+                'alt="示例配图" /></p>'
+                "<p>文档链接："
+                '<a href="https://fastapi.tiangolo.com/" target="_blank" '
+                'rel="noopener noreferrer">FastAPI 文档</a>'
+                "</p>"
+            ),
+            published=True,
+            category_slug="life",
+            tag_slugs=["python", "deploy"],
+        )
+        ensure_post(
+            title="异步 Python：并发与可维护性",
+            slug="async-python-notes",
+            excerpt="在 I/O 密集场景下使用 async/await 的一点体会与注意事项。",
+            content=(
+                "## 何时考虑异步\n\n"
+                "当瓶颈在网络或数据库等待时，异步能减少线程占用；CPU 密集仍要交给进程或多机。\n\n"
+                "## 可维护性\n\n"
+                "保持函数短小、错误路径清晰，比盲目堆 `gather` 更重要。"
+            ),
+            published=True,
+            category_slug="tech",
+            tag_slugs=["python", "performance"],
+        )
+        ensure_post(
+            title="Vue 组合式 API 速记",
+            slug="vue-composition-api-tips",
+            excerpt="从选项式迁到组合式时常见的模式与踩坑。",
+            content=(
+                "## 组合式要点\n\n"
+                "- `ref` / `reactive` 选用习惯要统一；\n"
+                "- 大块逻辑抽到 `useXxx` 便于复测；\n"
+                "- 与 TypeScript 配合时注意推导类型。\n\n"
+                "小步重构比一次性大改风险更低。"
+            ),
+            published=True,
+            category_slug="tech",
+            tag_slugs=["vue", "css"],
+        )
+        ensure_post(
+            title="SQL Server 索引排查手记",
+            slug="sqlserver-indexing-tips",
+            excerpt="慢查询日志、缺失索引与执行计划阅读顺序。",
+            content=(
+                "## 排查顺序\n\n"
+                "1. 确认真实参数与基数估计；\n"
+                "2. 看是否出现意外扫描；\n"
+                "3. 再考虑新增或调整索引。\n\n"
+                "索引不是越多越好，写入成本要一起评估。"
+            ),
+            published=True,
+            category_slug="opensource",
+            tag_slugs=["sqlserver", "performance"],
+        )
+        ensure_post(
+            title="周末徒步：路线与装备清单",
+            slug="weekend-hiking-checklist",
+            excerpt="一日轻装路线示例，以及个人会带的应急小物。",
+            content=(
+                "## 路线\n\n"
+                "选成熟步道，提前看天气与关门时间。\n\n"
+                "## 装备\n\n"
+                "水、头灯、薄外套、简单急救包；手机离线地图提前下好。"
+            ),
+            published=True,
+            category_slug="travel",
+            tag_slugs=["docker", "security"],
+        )
+        ensure_post(
+            title="2026 开年书单（技术向）",
+            slug="reading-list-2026",
+            excerpt="系统设计与工程实践类书目，按阅读顺序排列。",
+            content=(
+                "## 书单\n\n"
+                "- 分布式系统基础；\n"
+                "- 软件架构权衡；\n"
+                "- 一本与团队流程相关的轻量读物。\n\n"
+                "读不完也没关系，挑一两本精读更有效。"
+            ),
+            published=True,
+            category_slug="books",
+            tag_slugs=["python", "testing"],
+        )
+
+        db.flush()
+        seed_posts = db.query(Post).order_by(Post.id.asc()).all()
+        _ensure_demo_comments(db, seed_posts)
+
         db.commit()
     finally:
         db.close()

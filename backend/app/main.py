@@ -29,7 +29,6 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
-
 # CORS：开发时 Vue 与 API 不同端口需放行
 origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 _PRIVATE_ORIGIN_RE = (

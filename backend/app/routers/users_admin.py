@@ -1,4 +1,4 @@
-﻿"""
+"""
 用户 HTTP 路由：后台增删改查（含密码哈希）。
 
 禁止删除当前登录账号，避免锁死后台；密码仅在创建或 PATCH 显式传入时更新。
@@ -13,19 +13,22 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models import User
 from app.schemas import UserAdminCreate, UserAdminOut, UserAdminUpdate
+from app.schemas.page import Page
 from app.services.crud_utils import commit_and_refresh, delete_and_commit, ensure_unique_field, get_by_id_or_404
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-@router.get("/admin", response_model=list[UserAdminOut])
+@router.get("/admin", response_model=Page[UserAdminOut])
 def list_users(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=500),
 ):
-    return db.query(User).order_by(User.id.asc()).offset(skip).limit(limit).all()
+    total = db.query(User).count()
+    rows = db.query(User).order_by(User.id.asc()).offset(skip).limit(limit).all()
+    return Page(items=rows, total=total)
 
 
 @router.get("/admin/{user_id}", response_model=UserAdminOut)

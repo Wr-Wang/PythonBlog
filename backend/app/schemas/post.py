@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_serializer
 
 from app.datetime_utils import format_dt_yyyy_mm_dd_hh_mm_ss_fff
 from app.schemas.common import datetime_json_shanghai
+from app.schemas.page import Page
 
 
 class PostBase(BaseModel):
@@ -81,7 +82,7 @@ class PostListItem(BaseModel):
 
 
 class PostAdminOut(BaseModel):
-    """后台文章行：含分类名、tag_ids，时间为 yyyy-MM-dd HH:mm:ss.fff。"""
+    """后台文章行：含分类名、tag_ids/tag_names，时间为 yyyy-MM-dd HH:mm:ss.fff。"""
 
     model_config = {"from_attributes": True}
 
@@ -96,12 +97,20 @@ class PostAdminOut(BaseModel):
     updated_at: datetime
     author_id: int | None
     author_name: str | None = Field(
-        None, description="文章作者登录名，用于后台评论表单默认昵称等"
+        None, description="文章作者登录名（后台列表作「作者」昵称展示；评论表单默认昵称等）"
     )
     category_id: int | None
     category_name: str | None = None
     tag_ids: list[int] = Field(default_factory=list)
+    tag_names: list[str] = Field(
+        default_factory=list,
+        description="与 tag_ids 同序的标签名称，供后台列表展示",
+    )
 
     @field_serializer("created_at", "updated_at", when_used="json")
     def _ser_dt(self, dt: datetime) -> str:
         return format_dt_yyyy_mm_dd_hh_mm_ss_fff(dt)
+
+
+# 文章后台列表分页：与通用 Page[PostAdminOut] 一致
+PostAdminListResponse = Page[PostAdminOut]

@@ -124,7 +124,7 @@ Steps:
 
 5. Create folder logs (for stdout logs from web.config).
 
-6. IIS site physical path = this backend folder; binding e.g. www.blogapi.com:8081.
+6. IIS site physical path = this backend folder; binding e.g. www.blogapi.com:80.
 
 7. Install HttpPlatformHandler.
 

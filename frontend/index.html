@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>个人博客</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("blog_theme") || "system";
+          var eff =
+            t === "light" ? "light" : t === "dark" ? "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          document.documentElement.setAttribute("data-theme", eff);
+          document.documentElement.setAttribute("data-theme-pref", t);
+          document.documentElement.setAttribute(
+            "data-font-size",
+            localStorage.getItem("blog_font_size") || "md",
+          );
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

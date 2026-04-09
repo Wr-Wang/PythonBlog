@@ -7,10 +7,13 @@ import uuid
 from pathlib import Path
 from typing import Annotated
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.config import settings
 from app.deps import get_current_user
+from app.rate_limit import require_rate_limit_upload_image
 from app.models import User
 from app.schemas import UploadImageResponse
 
@@ -22,6 +25,7 @@ _EXT = {".jpg": ".jpg", ".jpeg": ".jpg", ".png": ".png", ".gif": ".gif", ".webp"
 
 @router.post("/image", response_model=UploadImageResponse)
 async def upload_image(
+    _: Annotated[None, Depends(require_rate_limit_upload_image)],
     current: Annotated[User, Depends(get_current_user)],
     file: UploadFile = File(...),
 ):

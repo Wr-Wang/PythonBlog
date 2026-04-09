@@ -1,0 +1,55 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [13004]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:13542 (Press CTRL+C to quit)
+INFO:     127.0.0.1:63770:0 - "GET /admin/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63770:0 - "GET /assets/index-CCNaO84j.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /assets/index-D_M5hOXo.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64701:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63770:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts?published_only=true&skip=0&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts?published_only=true&skip=15&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts?published_only=true&skip=30&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts?published_only=true&skip=45&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts?published_only=true&skip=60&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts?published_only=true&skip=75&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts?published_only=true&skip=90&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts?published_only=true&skip=105&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63770:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64548:0 - "GET /api/posts/admin?skip=0&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060:0 - "GET /admin/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060:0 - "GET /assets/index-CCNaO84j.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54964:0 - "GET /assets/index-D_M5hOXo.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:55726:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54964:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54964:0 - "GET /api/posts/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /admin/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /assets/index-CCNaO84j.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58692:0 - "GET /assets/index-D_M5hOXo.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51569:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54246:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /api/posts/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /assets/index-CCNaO84j.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58692:0 - "GET /assets/index-D_M5hOXo.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:58692:0 - "GET /api/posts?published_only=true&skip=0&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /api/posts?published_only=true&skip=15&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /api/posts/search?q=%E7%AE%80%E8%BF%B0%E6%A6%82%E5%BF%B5%E5%8F%B2&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /api/posts?published_only=true&skip=0&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /api/posts/by-slug/wiki-seed-004 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58692:0 - "GET /api/comments/by-post/214 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59939:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53723:0 - "GET /api/posts?published_only=true&skip=0&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53723:0 - "GET /api/posts/by-slug/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53723:0 - "GET /api/comments/by-post/216 HTTP/1.1" 200 OK

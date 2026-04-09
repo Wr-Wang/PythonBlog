@@ -1,0 +1,29 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [9192]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:31523 (Press CTRL+C to quit)
+INFO:     127.0.0.1:60838:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64070:0 - "GET /post/rich-images-links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64070:0 - "GET /assets/index-B6o3k-Kr.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797:0 - "GET /assets/index-B41jVKqh.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64070:0 - "GET /api/posts/by-slug/rich-images-links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64070:0 - "GET /api/comments/by-post/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64070:0 - "GET /post/rich-images-links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64070:0 - "GET /assets/index-B6o3k-Kr.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:50797:0 - "GET /assets/index-B41jVKqh.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:64070:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797:0 - "GET /api/posts/by-slug/rich-images-links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797:0 - "GET /api/comments/by-post/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797:0 - "GET /admin/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797:0 - "GET /assets/index-B6o3k-Kr.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:64070:0 - "GET /assets/index-B41jVKqh.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63249:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64070:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50797:0 - "GET /api/posts/admin?limit=500 HTTP/1.1" 200 OK

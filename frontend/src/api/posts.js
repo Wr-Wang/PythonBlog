@@ -5,6 +5,11 @@ export function getPosts(params = {}) {
   return client.get("/posts", { params });
 }
 
+/** 站内搜索（已发布文章，标题/摘要，SRCH-01） */
+export function searchPosts(params = {}) {
+  return client.get("/posts/search", { params });
+}
+
 export function getPostBySlug(slug) {
   return client.get(`/posts/by-slug/${encodeURIComponent(slug)}`);
 }

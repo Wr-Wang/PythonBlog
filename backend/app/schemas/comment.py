@@ -1,6 +1,7 @@
 """评论：访客展示与发表、后台管理与回复。"""
 import base64
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_serializer, model_validator
 
@@ -71,6 +72,9 @@ class CommentCreatePublic(BaseModel):
         return self
 
 
+CommentStatus = Literal["pending", "approved", "rejected"]
+
+
 class CommentAdminOut(BaseModel):
     """后台列表行：附带文章标题。"""
 
@@ -82,6 +86,7 @@ class CommentAdminOut(BaseModel):
     parent_id: int | None
     author_name: str
     content: str
+    status: str = "approved"
     created_at: datetime
 
     @field_serializer("created_at", when_used="json")
@@ -97,6 +102,7 @@ class CommentAdminCreate(BaseModel):
     author_name: str = Field(min_length=1, max_length=128)
     content: str | None = None
     content_b64: str | None = None
+    status: CommentStatus = "approved"
 
     @model_validator(mode="after")
     def _resolve_content_admin_create(self):
@@ -110,6 +116,7 @@ class CommentAdminUpdate(BaseModel):
     author_name: str | None = Field(None, min_length=1, max_length=128)
     content: str | None = None
     content_b64: str | None = None
+    status: CommentStatus | None = None
 
     @model_validator(mode="after")
     def _resolve_content_admin_update(self):

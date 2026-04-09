@@ -14,5 +14,6 @@ def comment_to_admin_out(comment: Comment, post_title: str) -> CommentAdminOut:
         parent_id=comment.parent_id,
         author_name=comment.author_name,
         content=comment.content,
+        status=comment.status,
         created_at=comment.created_at,
     )

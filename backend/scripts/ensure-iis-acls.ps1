@@ -26,7 +26,7 @@ if ($PythonHome -and (Test-Path -LiteralPath $PythonHome)) {
     Write-Host "Grant $identity on Python: $PythonHome"
     & icacls $PythonHome /grant "${identity}:(OI)(CI)RX" /T | Out-Null
 } else {
-    Write-Host "未指定 -PythonHome 或路径不存在，请手动对 python.exe 所在目录执行 icacls（见 docs/Windows11-IIS部署www-blogapi-8081.md §7）。"
+    Write-Host "未指定 -PythonHome 或路径不存在，请手动对 python.exe 所在目录执行 icacls（见 docs/后端-IIS部署说明.md §7）。"
 }
 
 Write-Host "完成。请在 IIS 中回收对应应用程序池后重试访问。"
