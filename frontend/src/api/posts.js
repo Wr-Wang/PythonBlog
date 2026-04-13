@@ -33,3 +33,39 @@ export function updatePost(id, data) {
 export function deletePost(id) {
   return client.delete(`/posts/${id}`);
 }
+
+export function favoritePost(postId, user_key) {
+  return client.post(`/posts/${postId}/favorite`, { user_key });
+}
+
+export function unfavoritePost(postId, user_key) {
+  return client.delete(`/posts/${postId}/favorite`, { params: { user_key } });
+}
+
+export function likePost(postId, user_key) {
+  return client.post(`/posts/${postId}/like`, { user_key });
+}
+
+export function unlikePost(postId, user_key) {
+  return client.delete(`/posts/${postId}/like`, { params: { user_key } });
+}
+
+export function sharePost(postId, channel = "link", user_key = null) {
+  return client.post(`/posts/${postId}/share`, { channel, user_key });
+}
+
+export function reportPost(postId, payload) {
+  return client.post(`/posts/${postId}/report`, payload);
+}
+
+export function trackPostView(postId, payload) {
+  return client.post(`/posts/${postId}/view`, payload);
+}
+
+export function getPostInteractionStats(postId) {
+  return client.get(`/posts/${postId}/interaction-stats`);
+}
+
+export function getPostViewMetrics(postId) {
+  return client.get(`/posts/${postId}/view-metrics`);
+}

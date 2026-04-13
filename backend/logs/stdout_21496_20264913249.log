@@ -1,0 +1,26 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [19492]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:30840 (Press CTRL+C to quit)
+INFO:     127.0.0.1:53548:0 - "GET /admin/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53548:0 - "GET /assets/index-QDuifE3T.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62362:0 - "GET /assets/index-Bnc8zxHa.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62362:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53548:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53548:0 - "GET /api/admin/rbac/roles?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58376:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62362:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57007:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57007:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57007:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57007:0 - "POST /api/admin/rbac/roles/2/bind HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57007:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62362:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58376:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57007:0 - "GET /api/admin/rbac/roles?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53548:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK

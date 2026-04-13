@@ -1,0 +1,83 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [17112]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:12309 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61481:0 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61266:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61504:0 - "GET /api/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61506:0 - "GET /api/posts/211/interaction-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61512:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /assets/index-cLIEgkcH.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52257:0 - "GET /assets/index-C5oJikdl.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52257:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/posts?published_only=true&skip=0&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52257:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/posts/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58646:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52257:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49951:0 - "GET /api/admin/rbac/roles?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/users/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/posts/admin?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/comments/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /post/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56043:0 - "GET /assets/index-cLIEgkcH.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63239:0 - "GET /assets/index-C5oJikdl.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:63239:0 - "GET /api/posts/by-slug/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/view HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/posts/216/interaction-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/comments/by-post/216 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/share HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/share HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/share HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/share HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/report HTTP/1.1" 201 Created
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/share HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/favorite HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/like HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /post/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /assets/index-cLIEgkcH.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56043:0 - "GET /assets/index-C5oJikdl.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56043:0 - "GET /api/posts/by-slug/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/view HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/posts/216/interaction-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/comments/by-post/216 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/like HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /post/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/posts/by-slug/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/view HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/posts/216/interaction-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/comments/by-post/216 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /post/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/posts/by-slug/wiki-seed-006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/view HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/posts/216/interaction-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "GET /api/comments/by-post/216 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/favorite HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/like HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/share HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63239:0 - "POST /api/posts/216/share HTTP/1.1" 200 OK

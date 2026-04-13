@@ -9,6 +9,10 @@ import AdminCategories from "../views/admin/AdminCategories.vue";
 import AdminTags from "../views/admin/AdminTags.vue";
 import AdminUsers from "../views/admin/AdminUsers.vue";
 import AdminComments from "../views/admin/AdminComments.vue";
+import AdminDashboard from "../views/admin/AdminDashboard.vue";
+import AdminWorkflow from "../views/admin/AdminWorkflow.vue";
+import AdminPermissions from "../views/admin/AdminPermissions.vue";
+import { authMe } from "../api";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -58,15 +62,47 @@ const router = createRouter({
           meta: { adminTitle: "评论管理" },
           component: AdminComments,
         },
+        {
+          path: "dashboard",
+          name: "admin-dashboard",
+          meta: { adminTitle: "运营看板", requiredMenu: "/admin/dashboard" },
+          component: AdminDashboard,
+        },
+        {
+          path: "workflow",
+          name: "admin-workflow",
+          meta: { adminTitle: "流程中心", requiredMenu: "/admin/workflow" },
+          component: AdminWorkflow,
+        },
+        {
+          path: "permissions",
+          name: "admin-permissions",
+          meta: { adminTitle: "权限管理", requiredMenu: "/admin/permissions" },
+          component: AdminPermissions,
+        },
       ],
     },
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const token = localStorage.getItem("blog_token");
   if (to.meta.requiresAuth && !token) {
     return { name: "admin-login", query: { redirect: to.fullPath } };
+  }
+  if (to.path.startsWith("/admin") && to.name !== "admin-login") {
+    try {
+      const { data } = await authMe();
+      localStorage.setItem("blog_profile", JSON.stringify(data || {}));
+      const required = to.meta?.requiredMenu;
+      if (required && Array.isArray(data?.menus) && data.menus.length > 0 && !data.menus.includes(required)) {
+        return { name: "admin-posts" };
+      }
+    } catch {
+      localStorage.removeItem("blog_token");
+      localStorage.removeItem("blog_profile");
+      return { name: "admin-login", query: { reason: "session_expired", redirect: to.fullPath } };
+    }
   }
 });
 

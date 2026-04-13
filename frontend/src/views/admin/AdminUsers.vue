@@ -5,11 +5,15 @@ import AdminPaginationBar from "../../components/AdminPaginationBar.vue";
 import BaseModal from "../../components/BaseModal.vue";
 import ConfirmDialog from "../../components/ConfirmDialog.vue";
 import {
+  bindUserRoles,
   createUserAdmin,
   deleteUserAdmin,
+  getUserRoleBindings,
   listUsersAdmin,
+  listRoles,
   updateUserAdmin,
 } from "../../api";
+import { hasPermission } from "../../utils/permissions";
 
 const router = useRouter();
 const rows = ref([]);
@@ -31,10 +35,36 @@ const saving = ref(false);
 const delOpen = ref(false);
 const delRow = ref(null);
 const delMsg = ref("");
+const bindOpen = ref(false);
+const bindUser = ref(null);
+const allRoles = ref([]);
+const bindRoleIds = ref([]);
+const bindSaving = ref(false);
+const bindErr = ref("");
+const canViewUsers = hasPermission("admin.users.view");
+const canCreateUser = hasPermission("admin.users.create");
+const canEditUser = hasPermission("admin.users.update");
+const canDeleteUser = hasPermission("admin.users.delete");
+const canBindRoles = hasPermission("admin.users.bind_roles");
+
+function toNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+}
+
+function hasRoleId(id) {
+  const t = toNum(id);
+  return bindRoleIds.value.some((x) => toNum(x) === t);
+}
 
 async function load() {
   loading.value = true;
   err.value = "";
+  if (!canViewUsers) {
+    loading.value = false;
+    err.value = "缺少权限: admin.users.view";
+    return;
+  }
   try {
     let p = page.value;
     const skip = (p - 1) * pageSize.value;
@@ -59,6 +89,11 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+
+async function loadRolesMeta() {
+  const { data } = await listRoles({ skip: 0, limit: 500 });
+  allRoles.value = data.items || [];
 }
 
 watch(page, load, { immediate: true });
@@ -132,6 +167,42 @@ function askDel(r) {
   delOpen.value = true;
 }
 
+async function openBindRoles(r) {
+  bindErr.value = "";
+  bindUser.value = r;
+  bindOpen.value = true;
+  try {
+    await loadRolesMeta();
+    const { data } = await getUserRoleBindings(r.id);
+    bindRoleIds.value = (data.role_ids || []).map((x) => toNum(x));
+  } catch (e) {
+    bindErr.value = e.response?.data?.detail || e.message || "加载绑定信息失败";
+  }
+}
+
+function toggleBindRole(roleId) {
+  const target = toNum(roleId);
+  if (hasRoleId(target)) {
+    bindRoleIds.value = bindRoleIds.value.filter((x) => toNum(x) !== target);
+  } else {
+    bindRoleIds.value = [...bindRoleIds.value.map((x) => toNum(x)), target];
+  }
+}
+
+async function saveBindRoles() {
+  if (!bindUser.value) return;
+  bindSaving.value = true;
+  bindErr.value = "";
+  try {
+    await bindUserRoles(bindUser.value.id, bindRoleIds.value.map((x) => toNum(x)));
+    bindOpen.value = false;
+  } catch (e) {
+    bindErr.value = e.response?.data?.detail || e.message || "保存绑定失败";
+  } finally {
+    bindSaving.value = false;
+  }
+}
+
 async function confirmDel() {
   if (!delRow.value) return;
   try {
@@ -149,17 +220,19 @@ async function confirmDel() {
     <div class="admin-toolbar">
       <p class="admin-toolbar-desc">后台登录账号；密码仅存哈希。禁用后无法换取 JWT。</p>
       <div class="admin-toolbar-actions">
-        <button type="button" @click="openCreate">新增用户</button>
+        <button v-if="canCreateUser" type="button" @click="openCreate">新增用户</button>
       </div>
     </div>
-    <AdminPaginationBar
-      v-if="!loading && !err && total > 0"
-      :total="total"
-      :page="page"
-      :page-size="pageSize"
-      @update:page="setPage"
-      @page-size-change="onPageSizeChange"
-    />
+    <div class="admin-pagination-wrap">
+      <AdminPaginationBar
+        v-if="!loading && !err && total > 0"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        @update:page="setPage"
+        @page-size-change="onPageSizeChange"
+      />
+    </div>
     <p v-if="loading" class="admin-loading">加载中…</p>
     <p v-else-if="err" class="error">{{ err }}</p>
     <div v-else class="admin-table-scroll">
@@ -184,8 +257,11 @@ async function confirmDel() {
             <td>{{ r.is_active }}</td>
             <td class="admin-mono">{{ r.created_at }}</td>
             <td class="admin-ops">
-              <button type="button" class="secondary" @click="openEdit(r)">编辑</button>
-              <button type="button" class="danger" @click="askDel(r)">删除</button>
+              <a v-if="canEditUser" href="#" class="op-link" @click.prevent="openEdit(r)">编辑</a>
+              <span v-if="canEditUser && (canBindRoles || canDeleteUser)" class="op-sep"> | </span>
+              <a v-if="canBindRoles" href="#" class="op-link" @click.prevent="openBindRoles(r)">绑定角色</a>
+              <span v-if="canBindRoles && canDeleteUser" class="op-sep"> | </span>
+              <a v-if="canDeleteUser" href="#" class="op-link danger-link" @click.prevent="askDel(r)">删除</a>
             </td>
           </tr>
         </tbody>
@@ -211,6 +287,28 @@ async function confirmDel() {
     </BaseModal>
 
     <ConfirmDialog :open="delOpen" title="删除用户" :message="delMsg" @close="delOpen = false" @confirm="confirmDel" />
+    <BaseModal :open="bindOpen" title="给用户绑定角色" @close="bindOpen = false">
+      <p class="meta" v-if="bindUser">当前用户：{{ bindUser.username }}</p>
+      <p v-if="bindErr" class="error">{{ bindErr }}</p>
+      <ul class="role-list">
+        <li v-for="r in allRoles" :key="'b-' + r.id">
+          <label class="chk-inline">
+            <input
+              type="checkbox"
+              :checked="hasRoleId(r.id)"
+              @change="toggleBindRole(r.id)"
+            />
+            <span>{{ r.name }}（{{ r.code }}）</span>
+          </label>
+        </li>
+      </ul>
+      <template #footer>
+        <button type="button" class="secondary" @click="bindOpen = false">取消</button>
+        <button type="button" :disabled="bindSaving" @click="saveBindRoles">
+          {{ bindSaving ? "保存中…" : "保存角色绑定" }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -220,5 +318,26 @@ label:not(.chk-inline) {
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.9rem;
+}
+.role-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+.op-link {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.op-link:hover {
+  text-decoration: underline;
+}
+.danger-link {
+  color: #ef4444;
+}
+.op-sep {
+  color: var(--muted);
 }
 </style>

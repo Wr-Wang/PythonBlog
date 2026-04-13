@@ -16,8 +16,17 @@ class PostBase(BaseModel):
     excerpt: str | None = Field(None, max_length=500)
     content: str = Field(min_length=1)
     published: bool = False
+    review_status: str = Field(default="draft", max_length=20)
     category_id: int | None = None
     cover_image_url: str | None = Field(None, max_length=512)
+    rank_level: int = 1
+    weight: int = 0
+    is_featured: bool = False
+    is_pinned: bool = False
+    published_at: datetime | None = None
+    offline_at: datetime | None = None
+    content_type: str | None = Field(default=None, max_length=20)
+    source_url: str | None = Field(default=None, max_length=512)
     tag_ids: list[int] = Field(default_factory=list)
 
 
@@ -35,8 +44,17 @@ class PostUpdate(BaseModel):
     excerpt: str | None = None
     content: str | None = None
     published: bool | None = None
+    review_status: str | None = Field(default=None, max_length=20)
     category_id: int | None = None
     cover_image_url: str | None = Field(None, max_length=512)
+    rank_level: int | None = None
+    weight: int | None = None
+    is_featured: bool | None = None
+    is_pinned: bool | None = None
+    published_at: datetime | None = None
+    offline_at: datetime | None = None
+    content_type: str | None = Field(default=None, max_length=20)
+    source_url: str | None = Field(default=None, max_length=512)
     tag_ids: list[int] | None = None
 
 
@@ -51,7 +69,21 @@ class PostOut(BaseModel):
     excerpt: str | None
     content: str
     published: bool
+    review_status: str
     cover_image_url: str | None
+    favorite_count: int
+    like_count: int
+    view_count: int
+    share_count: int
+    rank_level: int
+    weight: int
+    hot_score: int
+    is_featured: bool
+    is_pinned: bool
+    published_at: datetime | None
+    offline_at: datetime | None
+    content_type: str | None
+    source_url: str | None
     created_at: datetime
     updated_at: datetime
     author_id: int | None
@@ -73,6 +105,14 @@ class PostListItem(BaseModel):
     excerpt: str | None
     published: bool
     cover_image_url: str | None
+    favorite_count: int
+    like_count: int
+    view_count: int
+    share_count: int
+    rank_level: int
+    hot_score: int
+    is_featured: bool
+    is_pinned: bool
     created_at: datetime
     category_id: int | None
 
@@ -92,7 +132,21 @@ class PostAdminOut(BaseModel):
     excerpt: str | None
     content: str
     published: bool
+    review_status: str
     cover_image_url: str | None
+    favorite_count: int
+    like_count: int
+    view_count: int
+    share_count: int
+    rank_level: int
+    weight: int
+    hot_score: int
+    is_featured: bool
+    is_pinned: bool
+    published_at: datetime | None
+    offline_at: datetime | None
+    content_type: str | None
+    source_url: str | None
     created_at: datetime
     updated_at: datetime
     author_id: int | None

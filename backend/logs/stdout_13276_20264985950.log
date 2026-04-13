@@ -1,0 +1,14 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [12584]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:15999 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64803:0 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64817:0 - "GET /api/admin/ops/trends HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64820:0 - "GET /api/admin/ops/export?format=xlsx HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64822:0 - "GET /api/admin/rbac/roles/1/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64823:0 - "GET /api/posts/recommend HTTP/1.1" 200 OK

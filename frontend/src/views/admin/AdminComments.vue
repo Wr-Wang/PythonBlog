@@ -213,14 +213,16 @@ async function confirmDel() {
         <button type="button" @click="openCreate">新增评论</button>
       </div>
     </div>
-    <AdminPaginationBar
-      v-if="!loading && !err && total > 0"
-      :total="total"
-      :page="page"
-      :page-size="pageSize"
-      @update:page="setPage"
-      @page-size-change="onPageSizeChange"
-    />
+    <div class="admin-pagination-wrap">
+      <AdminPaginationBar
+        v-if="!loading && !err && total > 0"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        @update:page="setPage"
+        @page-size-change="onPageSizeChange"
+      />
+    </div>
     <p v-if="loading" class="admin-loading">加载中…</p>
     <p v-else-if="err" class="error">{{ err }}</p>
     <div v-else class="admin-table-scroll">
@@ -247,25 +249,29 @@ async function confirmDel() {
             <td class="admin-mono">{{ r.created_at }}</td>
             <td class="admin-mono">{{ r.status || "approved" }}</td>
             <td class="admin-ops">
-              <button
+              <a
                 v-if="r.status === 'pending'"
-                type="button"
-                class="secondary"
-                @click="setStatus(r, 'approved')"
+                href="#"
+                class="op-link"
+                @click.prevent="setStatus(r, 'approved')"
               >
                 通过
-              </button>
-              <button
+              </a>
+              <span v-if="r.status === 'pending'" class="op-sep"> | </span>
+              <a
                 v-if="r.status === 'pending'"
-                type="button"
-                class="secondary"
-                @click="setStatus(r, 'rejected')"
+                href="#"
+                class="op-link"
+                @click.prevent="setStatus(r, 'rejected')"
               >
                 拒绝
-              </button>
-              <button type="button" class="secondary" @click="openReply(r)">回复</button>
-              <button type="button" class="secondary" @click="openEdit(r)">编辑</button>
-              <button type="button" class="danger" @click="askDel(r)">删除</button>
+              </a>
+              <span class="op-sep"> | </span>
+              <a href="#" class="op-link" @click.prevent="openReply(r)">回复</a>
+              <span class="op-sep"> | </span>
+              <a href="#" class="op-link" @click.prevent="openEdit(r)">编辑</a>
+              <span class="op-sep"> | </span>
+              <a href="#" class="op-link danger-link" @click.prevent="askDel(r)">删除</a>
             </td>
           </tr>
         </tbody>
@@ -380,5 +386,19 @@ button.emoji-btn:hover {
 .comment-text {
   font-family: var(--font-sans, "Segoe UI", system-ui, sans-serif, "Segoe UI Emoji", "Apple Color Emoji",
     "Noto Color Emoji", emoji);
+}
+.op-link {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.op-link:hover {
+  text-decoration: underline;
+}
+.danger-link {
+  color: #ef4444;
+}
+.op-sep {
+  color: var(--muted);
 }
 </style>

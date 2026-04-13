@@ -256,6 +256,34 @@ def ensure_posts_extra_columns(engine: Engine) -> None:
         stmts.append("ALTER TABLE posts ADD category_id INT NULL")
     if "cover_image_url" not in col_names:
         stmts.append("ALTER TABLE posts ADD cover_image_url NVARCHAR(512) NULL")
+    if "review_status" not in col_names:
+        stmts.append("ALTER TABLE posts ADD review_status NVARCHAR(20) NOT NULL DEFAULT N'draft'")
+    if "favorite_count" not in col_names:
+        stmts.append("ALTER TABLE posts ADD favorite_count INT NOT NULL DEFAULT 0")
+    if "like_count" not in col_names:
+        stmts.append("ALTER TABLE posts ADD like_count INT NOT NULL DEFAULT 0")
+    if "view_count" not in col_names:
+        stmts.append("ALTER TABLE posts ADD view_count INT NOT NULL DEFAULT 0")
+    if "share_count" not in col_names:
+        stmts.append("ALTER TABLE posts ADD share_count INT NOT NULL DEFAULT 0")
+    if "rank_level" not in col_names:
+        stmts.append("ALTER TABLE posts ADD rank_level INT NOT NULL DEFAULT 1")
+    if "weight" not in col_names:
+        stmts.append("ALTER TABLE posts ADD weight INT NOT NULL DEFAULT 0")
+    if "hot_score" not in col_names:
+        stmts.append("ALTER TABLE posts ADD hot_score INT NOT NULL DEFAULT 0")
+    if "is_featured" not in col_names:
+        stmts.append("ALTER TABLE posts ADD is_featured BIT NOT NULL DEFAULT 0")
+    if "is_pinned" not in col_names:
+        stmts.append("ALTER TABLE posts ADD is_pinned BIT NOT NULL DEFAULT 0")
+    if "published_at" not in col_names:
+        stmts.append("ALTER TABLE posts ADD published_at DATETIME NULL")
+    if "offline_at" not in col_names:
+        stmts.append("ALTER TABLE posts ADD offline_at DATETIME NULL")
+    if "content_type" not in col_names:
+        stmts.append("ALTER TABLE posts ADD content_type NVARCHAR(20) NULL")
+    if "source_url" not in col_names:
+        stmts.append("ALTER TABLE posts ADD source_url NVARCHAR(512) NULL")
     if not stmts:
         return
     with engine.begin() as conn:
@@ -273,4 +301,24 @@ def ensure_posts_extra_columns(engine: Engine) -> None:
                 )
             except Exception:
                 pass
+
+
+def ensure_roles_data_scope_column(engine: Engine) -> None:
+    """为旧版 roles 表补 data_scope（all/self）。"""
+    insp = inspect(engine)
+    try:
+        table_names = {t.lower() for t in insp.get_table_names(schema="dbo")}
+    except TypeError:
+        table_names = {t.lower() for t in insp.get_table_names()}
+    if "roles" not in table_names:
+        return
+    try:
+        columns = insp.get_columns("roles", schema="dbo")
+    except Exception:
+        columns = insp.get_columns("roles")
+    col_names = {c["name"].lower() for c in columns}
+    if "data_scope" in col_names:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE roles ADD data_scope NVARCHAR(20) NOT NULL DEFAULT N'all'"))
 

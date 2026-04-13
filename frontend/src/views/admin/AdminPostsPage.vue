@@ -13,9 +13,11 @@ import {
   deletePost,
   listCategoriesAdmin,
   listTagsAdmin,
+  transitionPost,
   updatePost,
   uploadImage,
 } from "../../api";
+import { hasPermission } from "../../utils/permissions";
 
 const router = useRouter();
 const rows = ref([]);
@@ -26,6 +28,15 @@ const categories = ref([]);
 const tags = ref([]);
 const loading = ref(true);
 const err = ref("");
+const q = ref("");
+const fReviewStatus = ref("");
+const fPublishedOnly = ref("");
+const fSortBy = ref("created_at");
+const fSortDir = ref("desc");
+const fPinnedOnly = ref("");
+const fFeaturedOnly = ref("");
+const fCategoryFilter = ref("");
+const fTagFilter = ref("");
 
 const formOpen = ref(false);
 const formTitle = ref("新增文章");
@@ -38,12 +49,29 @@ const fPublished = ref(false);
 const fCategoryId = ref("");
 const fTagIds = ref([]);
 const fCoverUrl = ref("");
+const fReviewStatusEdit = ref("draft");
+const fWeight = ref(0);
+const fRankLevel = ref(1);
+const fIsPinned = ref(false);
+const fIsFeatured = ref(false);
+const fPublishedAt = ref("");
+const fOfflineAt = ref("");
+const fContentType = ref("");
+const fSourceUrl = ref("");
 const formErr = ref("");
 const saving = ref(false);
 
 const delOpen = ref(false);
 const delTarget = ref(null);
 const delMsg = ref("");
+const canViewPosts = hasPermission("admin.posts.view");
+const canCreatePost = hasPermission("admin.posts.create");
+const canEditPost = hasPermission("admin.posts.update");
+const canDeletePost = hasPermission("admin.posts.delete");
+const canPinPost = hasPermission("admin.posts.pin.update");
+const canFeaturePost = hasPermission("admin.posts.featured.update");
+const canPublishNow = hasPermission("admin.posts.publish.now");
+const canOfflineNow = hasPermission("admin.posts.offline.now");
 
 function tagChecked(id) {
   return fTagIds.value.includes(id);
@@ -66,19 +94,34 @@ async function loadMeta() {
 async function load() {
   loading.value = true;
   err.value = "";
+  if (!canViewPosts) {
+    loading.value = false;
+    err.value = "缺少权限: admin.posts.view";
+    return;
+  }
   try {
     await loadMeta();
     let p = page.value;
     const skip = (p - 1) * pageSize.value;
-    let { data } = await adminListPosts({ skip, limit: pageSize.value });
+    const params = {
+      skip,
+      limit: pageSize.value,
+      q: q.value.trim() || undefined,
+      review_status: fReviewStatus.value || undefined,
+      published: fPublishedOnly.value === "" ? undefined : fPublishedOnly.value === "true",
+      category_id: fCategoryFilter.value ? Number(fCategoryFilter.value) : undefined,
+      tag_id: fTagFilter.value ? Number(fTagFilter.value) : undefined,
+      is_pinned: fPinnedOnly.value === "" ? undefined : fPinnedOnly.value === "true",
+      is_featured: fFeaturedOnly.value === "" ? undefined : fFeaturedOnly.value === "true",
+      sort_by: fSortBy.value,
+      sort_dir: fSortDir.value,
+    };
+    let { data } = await adminListPosts(params);
     const maxP = Math.max(1, Math.ceil(data.total / pageSize.value) || 1);
     if (p > maxP && data.total >= 0) {
       page.value = maxP;
       p = maxP;
-      ({ data } = await adminListPosts({
-        skip: (p - 1) * pageSize.value,
-        limit: pageSize.value,
-      }));
+      ({ data } = await adminListPosts({ ...params, skip: (p - 1) * pageSize.value }));
     }
     rows.value = data.items;
     total.value = data.total;
@@ -105,6 +148,11 @@ function onPageSizeChange(newSize) {
   else load();
 }
 
+function applyFilters() {
+  if (page.value !== 1) page.value = 1;
+  else load();
+}
+
 function openCreate() {
   editingId.value = null;
   formTitle.value = "新增文章";
@@ -116,6 +164,15 @@ function openCreate() {
   fCategoryId.value = "";
   fTagIds.value = [];
   fCoverUrl.value = "";
+  fReviewStatusEdit.value = "draft";
+  fWeight.value = 0;
+  fRankLevel.value = 1;
+  fIsPinned.value = false;
+  fIsFeatured.value = false;
+  fPublishedAt.value = "";
+  fOfflineAt.value = "";
+  fContentType.value = "";
+  fSourceUrl.value = "";
   formErr.value = "";
   formOpen.value = true;
 }
@@ -131,6 +188,15 @@ function openEdit(row) {
   fCategoryId.value = row.category_id != null ? String(row.category_id) : "";
   fTagIds.value = [...(row.tag_ids || [])];
   fCoverUrl.value = row.cover_image_url || "";
+  fReviewStatusEdit.value = row.review_status || "draft";
+  fWeight.value = Number(row.weight || 0);
+  fRankLevel.value = Number(row.rank_level || 1);
+  fIsPinned.value = !!row.is_pinned;
+  fIsFeatured.value = !!row.is_featured;
+  fPublishedAt.value = toLocalDateTime(row.published_at);
+  fOfflineAt.value = toLocalDateTime(row.offline_at);
+  fContentType.value = row.content_type || "";
+  fSourceUrl.value = row.source_url || "";
   formErr.value = "";
   formOpen.value = true;
 }
@@ -170,6 +236,15 @@ async function saveForm() {
     category_id: fCategoryId.value === "" ? null : Number(fCategoryId.value),
     cover_image_url: fCoverUrl.value.trim() || null,
     tag_ids: [...fTagIds.value],
+    review_status: fReviewStatusEdit.value,
+    weight: Number(fWeight.value || 0),
+    rank_level: Number(fRankLevel.value || 1),
+    is_pinned: !!fIsPinned.value,
+    is_featured: !!fIsFeatured.value,
+    published_at: fromLocalDateTime(fPublishedAt.value),
+    offline_at: fromLocalDateTime(fOfflineAt.value),
+    content_type: fContentType.value.trim() || null,
+    source_url: fSourceUrl.value.trim() || null,
   };
   if (!body.title || !body.slug || isRichTextEmpty(body.content)) {
     formErr.value = "请填写标题、slug 与正文";
@@ -231,6 +306,36 @@ function isRichTextEmpty(html) {
     .trim();
   return !t;
 }
+
+function toLocalDateTime(v) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromLocalDateTime(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+async function quickTogglePinned(row) {
+  await updatePost(row.id, { is_pinned: !row.is_pinned });
+  await load();
+}
+
+async function quickToggleFeatured(row) {
+  await updatePost(row.id, { is_featured: !row.is_featured });
+  await load();
+}
+
+async function quickTransition(row, toStatus) {
+  await transitionPost(row.id, toStatus);
+  await load();
+}
 </script>
 
 <template>
@@ -240,17 +345,63 @@ function isRichTextEmpty(html) {
         正文为富文本（图文、视频嵌入、表情）；旧文章若为 Markdown，打开编辑时会自动转为 HTML 保存。访客仅可见已发布文章。
       </p>
       <div class="admin-toolbar-actions">
-        <button type="button" @click="openCreate">新增文章</button>
+        <input v-model="q" placeholder="搜索标题/slug/摘要" />
+        <select v-model="fReviewStatus">
+          <option value="">审核状态：全部</option>
+          <option value="draft">draft</option>
+          <option value="pending">pending</option>
+          <option value="approved">approved</option>
+          <option value="rejected">rejected</option>
+          <option value="offline">offline</option>
+        </select>
+        <select v-model="fPublishedOnly">
+          <option value="">发布：全部</option>
+          <option value="true">仅已发布</option>
+          <option value="false">仅未发布</option>
+        </select>
+        <select v-model="fPinnedOnly">
+          <option value="">置顶：全部</option>
+          <option value="true">仅置顶</option>
+          <option value="false">仅非置顶</option>
+        </select>
+        <select v-model="fFeaturedOnly">
+          <option value="">精选：全部</option>
+          <option value="true">仅精选</option>
+          <option value="false">仅非精选</option>
+        </select>
+        <select v-model="fCategoryFilter">
+          <option value="">分类：全部</option>
+          <option v-for="c in categories" :key="'fc-' + c.id" :value="String(c.id)">{{ c.name }}</option>
+        </select>
+        <select v-model="fTagFilter">
+          <option value="">标签：全部</option>
+          <option v-for="t in tags" :key="'ft-' + t.id" :value="String(t.id)">{{ t.name }}</option>
+        </select>
+        <select v-model="fSortBy">
+          <option value="created_at">排序：创建时间</option>
+          <option value="hot_score">排序：热度</option>
+          <option value="weight">排序：权重</option>
+          <option value="view_count">排序：浏览量</option>
+          <option value="published_at">排序：发布时间</option>
+        </select>
+        <select v-model="fSortDir">
+          <option value="desc">降序</option>
+          <option value="asc">升序</option>
+        </select>
+        <button type="button" class="secondary" @click="applyFilters">筛选</button>
+        <button v-if="canCreatePost" type="button" @click="openCreate">新增文章</button>
       </div>
     </div>
-    <AdminPaginationBar
-      v-if="!loading && !err && total > 0"
-      :total="total"
-      :page="page"
-      :page-size="pageSize"
-      @update:page="setPage"
-      @page-size-change="onPageSizeChange"
-    />
+    <div class="admin-pagination-wrap">
+      <AdminPaginationBar
+        v-if="!loading && !err && total > 0"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        @update:page="setPage"
+        @page-size-change="onPageSizeChange"
+      />
+    </div>
     <p v-if="loading" class="admin-loading">加载中…</p>
     <p v-else-if="err" class="error">{{ err }}</p>
     <div v-else class="admin-table-scroll">
@@ -262,6 +413,11 @@ function isRichTextEmpty(html) {
             <th>URL 标识</th>
             <th>摘要</th>
             <th>发布</th>
+            <th>审核</th>
+            <th>置顶</th>
+            <th>精选</th>
+            <th>权重</th>
+            <th>热度</th>
             <th>封面图 URL</th>
             <th>创建时间</th>
             <th>更新时间</th>
@@ -278,6 +434,11 @@ function isRichTextEmpty(html) {
             <td class="admin-cell-clip">{{ r.slug }}</td>
             <td class="admin-cell-clip">{{ r.excerpt || "—" }}</td>
             <td>{{ r.published }}</td>
+            <td>{{ r.review_status || "draft" }}</td>
+            <td>{{ r.is_pinned ? "是" : "否" }}</td>
+            <td>{{ r.is_featured ? "是" : "否" }}</td>
+            <td>{{ r.weight ?? 0 }}</td>
+            <td>{{ r.hot_score ?? 0 }}</td>
             <td class="admin-cell-clip admin-mono">{{ r.cover_image_url || "—" }}</td>
             <td class="admin-mono">{{ r.created_at }}</td>
             <td class="admin-mono">{{ r.updated_at }}</td>
@@ -290,8 +451,17 @@ function isRichTextEmpty(html) {
               <span v-else class="tags-empty">—</span>
             </td>
             <td class="admin-ops">
-              <button type="button" class="secondary" @click="openEdit(r)">编辑</button>
-              <button type="button" class="danger" @click="askDelete(r)">删除</button>
+              <a v-if="canEditPost" href="#" class="op-link" @click.prevent="openEdit(r)">编辑</a>
+              <span v-if="canEditPost && (canPinPost || canFeaturePost || canPublishNow || canOfflineNow || canDeletePost)" class="op-sep"> | </span>
+              <a v-if="canPinPost" href="#" class="op-link" @click.prevent="quickTogglePinned(r)">{{ r.is_pinned ? "取消置顶" : "置顶" }}</a>
+              <span v-if="canPinPost && (canFeaturePost || canPublishNow || canOfflineNow || canDeletePost)" class="op-sep"> | </span>
+              <a v-if="canFeaturePost" href="#" class="op-link" @click.prevent="quickToggleFeatured(r)">{{ r.is_featured ? "取消精选" : "设为精选" }}</a>
+              <span v-if="canFeaturePost && (canPublishNow || canOfflineNow || canDeletePost)" class="op-sep"> | </span>
+              <a v-if="canPublishNow" href="#" class="op-link" @click.prevent="quickTransition(r, 'approved')">立即发布</a>
+              <span v-if="canPublishNow && (canOfflineNow || canDeletePost)" class="op-sep"> | </span>
+              <a v-if="canOfflineNow" href="#" class="op-link" @click.prevent="quickTransition(r, 'offline')">立即下线</a>
+              <span v-if="canOfflineNow && canDeletePost" class="op-sep"> | </span>
+              <a v-if="canDeletePost" href="#" class="op-link danger-link" @click.prevent="askDelete(r)">删除</a>
             </td>
           </tr>
         </tbody>
@@ -327,6 +497,21 @@ function isRichTextEmpty(html) {
           </div>
         </div>
         <label class="full">封面图 URL <input v-model="fCoverUrl" placeholder="/uploads/xxx.jpg" /></label>
+        <label>审核状态
+          <select v-model="fReviewStatusEdit">
+            <option value="draft">draft</option>
+            <option value="pending">pending</option>
+            <option value="approved">approved</option>
+            <option value="rejected">rejected</option>
+            <option value="offline">offline</option>
+          </select>
+        </label>
+        <label>权重 <input v-model.number="fWeight" type="number" /></label>
+        <label>排序等级 <input v-model.number="fRankLevel" type="number" min="1" /></label>
+        <label>发布时间 <input v-model="fPublishedAt" type="datetime-local" /></label>
+        <label>下线时间 <input v-model="fOfflineAt" type="datetime-local" /></label>
+        <label>内容类型 <input v-model="fContentType" placeholder="article/video/image/link/text" /></label>
+        <label>来源链接 <input v-model="fSourceUrl" placeholder="https://..." /></label>
         <label class="full">
           上传图片
           <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="onPickCover" />
@@ -337,6 +522,14 @@ function isRichTextEmpty(html) {
         <label class="chk-inline full">
           <input v-model="fPublished" type="checkbox" />
           <span>发布后访客可见</span>
+        </label>
+        <label class="chk-inline full">
+          <input v-model="fIsPinned" type="checkbox" />
+          <span>置顶</span>
+        </label>
+        <label class="chk-inline full">
+          <input v-model="fIsFeatured" type="checkbox" />
+          <span>精选</span>
         </label>
         <p v-if="formErr" class="error full">{{ formErr }}</p>
       </div>
@@ -483,5 +676,19 @@ select {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+}
+.op-link {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.op-link:hover {
+  text-decoration: underline;
+}
+.danger-link {
+  color: #ef4444;
+}
+.op-sep {
+  color: var(--muted);
 }
 </style>

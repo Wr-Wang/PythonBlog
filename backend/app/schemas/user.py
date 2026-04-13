@@ -12,6 +12,9 @@ class UserOut(BaseModel):
     id: int
     username: str
     is_active: bool
+    roles: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
+    menus: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 

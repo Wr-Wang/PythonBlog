@@ -29,7 +29,23 @@ class Post(Base):
     excerpt: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     published: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 工作流：draft/pending/approved/rejected/offline
+    review_status: Mapped[str] = mapped_column(String(20), default="draft")
     cover_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # 增长与排序字段
+    favorite_count: Mapped[int] = mapped_column(Integer, default=0)
+    like_count: Mapped[int] = mapped_column(Integer, default=0)
+    view_count: Mapped[int] = mapped_column(Integer, default=0)
+    share_count: Mapped[int] = mapped_column(Integer, default=0)
+    rank_level: Mapped[int] = mapped_column(Integer, default=1)
+    weight: Mapped[int] = mapped_column(Integer, default=0)
+    hot_score: Mapped[int] = mapped_column(Integer, default=0)
+    is_featured: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    offline_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_shanghai_naive)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=now_shanghai_naive, onupdate=now_shanghai_naive

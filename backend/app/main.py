@@ -16,7 +16,18 @@ from app.config import settings
 from app.frontend_spa import mount_frontend_dist
 from app.http_middleware import register_api_db_gate
 from app.lifespan import app_lifespan
-from app.routers import auth, categories, comments, posts, tags, upload, users_admin
+from app.routers import (
+    auth,
+    categories,
+    comments,
+    interactions,
+    ops,
+    posts,
+    rbac,
+    tags,
+    upload,
+    users_admin,
+)
 
 # backend/app/main.py → 上两级为 backend，再上为项目根 PythonBlog
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -52,10 +63,13 @@ register_api_db_gate(app)
 
 app.include_router(auth.router)
 app.include_router(posts.router)
+app.include_router(interactions.router)
 app.include_router(categories.router)
 app.include_router(tags.router)
 app.include_router(users_admin.router)
 app.include_router(comments.router)
+app.include_router(rbac.router)
+app.include_router(ops.router)
 app.include_router(upload.router)
 
 # 用户上传图片，URL 形如 /uploads/<filename>

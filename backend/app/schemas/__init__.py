@@ -9,6 +9,14 @@ from app.schemas.comment import (
     CommentCreatePublic,
     CommentPublicOut,
 )
+from app.schemas.interaction import (
+    InteractionStatsOut,
+    PostActionBody,
+    PostReportBody,
+    PostShareBody,
+    PostViewBody,
+    PostViewMetricsOut,
+)
 from app.schemas.page import Page
 from app.schemas.post import (
     PostAdminListResponse,
@@ -21,6 +29,19 @@ from app.schemas.post import (
 from app.schemas.tag import TagAdminOut, TagCreate, TagUpdate
 from app.schemas.token import Token
 from app.schemas.upload import UploadImageResponse
+from app.schemas.rbac import (
+    AuditLogOut,
+    MenuCreate,
+    MenuOut,
+    MenuUpdate,
+    PermissionBindBody,
+    PermissionCreate,
+    PermissionOut,
+    RoleBindBody,
+    RoleCreate,
+    RoleOut,
+    RoleUpdate,
+)
 from app.schemas.user import UserAdminCreate, UserAdminOut, UserAdminUpdate, UserOut
 
 __all__ = [
@@ -33,6 +54,12 @@ __all__ = [
     "CommentAdminUpdate",
     "CommentCreatePublic",
     "CommentPublicOut",
+    "InteractionStatsOut",
+    "PostActionBody",
+    "PostShareBody",
+    "PostReportBody",
+    "PostViewBody",
+    "PostViewMetricsOut",
     "PostAdminListResponse",
     "PostAdminOut",
     "PostCreate",
@@ -44,6 +71,17 @@ __all__ = [
     "TagUpdate",
     "Token",
     "UploadImageResponse",
+    "RoleOut",
+    "RoleCreate",
+    "RoleUpdate",
+    "RoleBindBody",
+    "PermissionOut",
+    "PermissionCreate",
+    "PermissionBindBody",
+    "MenuOut",
+    "MenuCreate",
+    "MenuUpdate",
+    "AuditLogOut",
     "UserAdminCreate",
     "UserAdminOut",
     "UserAdminUpdate",

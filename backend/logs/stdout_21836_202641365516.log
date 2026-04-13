@@ -1,0 +1,55 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [16880]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:6065 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52056:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56114:0 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56115:0 - "GET /api/posts?limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56120:0 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56125:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56130:0 - "GET /api/posts/admin?skip=0&limit=1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56135:0 - "GET /api/admin/rbac/roles?skip=0&limit=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56136:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /admin/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /assets/index--tEwE2YG.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62805:0 - "GET /assets/index-DpYo92I9.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /api/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:57556:0 - "GET /admin/login?redirect=%2Fadmin%2Fposts&reason=session_expired HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62805:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/posts/admin?skip=0&limit=20&sort_by=created_at&sort_dir=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/categories/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/tags/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/users/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/posts/admin?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/comments/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /api/admin/ops/trends?start_date=2026-03-31&end_date=2026-04-13 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/admin/ops/moderation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /api/admin/ops/feature-flags HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58794:0 - "GET /api/admin/ops/search-ops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58794:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58794:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58794:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57556:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58794:0 - "GET /api/admin/rbac/roles?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59130:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54314:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK

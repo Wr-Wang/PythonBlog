@@ -18,8 +18,11 @@ from app.db_migrate import (
     ensure_comment_status_column,
     ensure_comments_unicode_columns,
     ensure_posts_extra_columns,
+    ensure_roles_data_scope_column,
 )
 from app.models import Category, Comment, Post, Tag, User
+from app.models.ops import BlacklistWord, FeatureFlag, SearchSynonym, SensitiveWord
+from app.models.rbac import Menu, Permission, Role, RoleMenu, RolePermission, UserRole
 
 DEFAULT_CATEGORIES = [
     {"name": "技术", "slug": "tech"},
@@ -139,6 +142,7 @@ def init_db() -> None:
     """
     Base.metadata.create_all(bind=engine)
     ensure_posts_extra_columns(engine)
+    ensure_roles_data_scope_column(engine)
     ensure_comments_unicode_columns(engine)
     ensure_comment_status_column(engine)
 
@@ -156,6 +160,106 @@ def init_db() -> None:
             db.add(user)
             db.commit()
             db.refresh(user)
+
+        # RBAC 基础种子（幂等）
+        role = db.query(Role).filter(Role.code == "super-admin").first()
+        if role is None:
+            role = Role(code="super-admin", name="超级管理员", data_scope="all", is_active=True)
+            db.add(role)
+            db.flush()
+        perm_codes = [
+            ("admin.super", "超级权限"),
+            ("admin.users.view", "查看用户"),
+            ("admin.users.create", "新增用户"),
+            ("admin.users.update", "编辑用户"),
+            ("admin.users.delete", "删除用户"),
+            ("admin.users.bind_roles", "给用户绑定角色"),
+            ("admin.roles.view", "查看角色"),
+            ("admin.roles.create", "新增角色"),
+            ("admin.roles.update", "编辑角色"),
+            ("admin.roles.bind_permissions", "给角色绑定权限点"),
+            ("admin.roles.bind_menus", "给角色绑定菜单"),
+            ("admin.permissions.view", "查看权限点"),
+            ("admin.menus.view", "查看菜单"),
+            ("admin.menus.create", "新增菜单"),
+            ("admin.menus.update", "编辑菜单"),
+            ("admin.audit.view", "查看审计日志"),
+            ("admin.posts.view", "查看文章后台列表"),
+            ("admin.posts.create", "新增文章"),
+            ("admin.posts.update", "编辑文章"),
+            ("admin.posts.delete", "删除文章"),
+            ("admin.posts.pin.update", "文章置顶设置"),
+            ("admin.posts.featured.update", "文章精选设置"),
+            ("admin.posts.publish.now", "文章立即发布"),
+            ("admin.posts.offline.now", "文章立即下线"),
+            ("admin.dashboard.view", "查看运营看板"),
+            ("admin.dashboard.export", "导出运营趋势"),
+            ("admin.flags.manage", "管理灰度开关"),
+            ("admin.moderation.manage", "管理审核词库"),
+            ("admin.searchops.manage", "管理搜索运营"),
+            # 兼容旧权限码
+            ("rbac.view", "查看权限配置（兼容）"),
+            ("rbac.manage", "管理权限配置（兼容）"),
+            ("post.workflow", "文章流程流转（兼容）"),
+            ("audit.view", "查看审计日志（兼容）"),
+        ]
+        perm_ids: list[int] = []
+        for code, name in perm_codes:
+            p = db.query(Permission).filter(Permission.code == code).first()
+            if p is None:
+                p = Permission(code=code, name=name)
+                db.add(p)
+                db.flush()
+            perm_ids.append(p.id)
+        menu_defs = [
+            ("admin.posts", "文章", "/admin/posts", 10),
+            ("admin.categories", "分类", "/admin/categories", 20),
+            ("admin.tags", "标签", "/admin/tags", 30),
+            ("admin.users", "用户", "/admin/users", 40),
+            ("admin.comments", "评论", "/admin/comments", 50),
+            ("admin.dashboard", "运营看板", "/admin/dashboard", 60),
+            ("admin.workflow", "流程中心", "/admin/workflow", 70),
+            ("admin.rbac", "权限管理", "/admin/permissions", 80),
+        ]
+        menu_ids: list[int] = []
+        for code, name, route, order_no in menu_defs:
+            m = db.query(Menu).filter(Menu.code == code).first()
+            if m is None:
+                m = Menu(code=code, name=name, route=route, order_no=order_no, hidden=False)
+                db.add(m)
+                db.flush()
+            menu_ids.append(m.id)
+        if not db.query(UserRole).filter(UserRole.user_id == user.id, UserRole.role_id == role.id).first():
+            db.add(UserRole(user_id=user.id, role_id=role.id))
+        for pid in perm_ids:
+            if not db.query(RolePermission).filter(
+                RolePermission.role_id == role.id, RolePermission.permission_id == pid
+            ).first():
+                db.add(RolePermission(role_id=role.id, permission_id=pid))
+        for mid in menu_ids:
+            if not db.query(RoleMenu).filter(RoleMenu.role_id == role.id, RoleMenu.menu_id == mid).first():
+                db.add(RoleMenu(role_id=role.id, menu_id=mid))
+
+        # 运营底座种子
+        if db.query(FeatureFlag).filter(FeatureFlag.code == "recommendation.rule_based").first() is None:
+            db.add(
+                FeatureFlag(
+                    code="recommendation.rule_based",
+                    name="规则推荐",
+                    enabled=True,
+                    rollout_percent=100,
+                )
+            )
+        if db.query(FeatureFlag).filter(FeatureFlag.code == "search.ops").first() is None:
+            db.add(FeatureFlag(code="search.ops", name="搜索运营", enabled=True, rollout_percent=100))
+        for w in ["违禁词", "辱骂词"]:
+            if db.query(SensitiveWord).filter(SensitiveWord.word == w).first() is None:
+                db.add(SensitiveWord(word=w, enabled=True))
+        for w in ["spam", "刷屏"]:
+            if db.query(BlacklistWord).filter(BlacklistWord.word == w).first() is None:
+                db.add(BlacklistWord(word=w, enabled=True))
+        if db.query(SearchSynonym).filter(SearchSynonym.src == "ai", SearchSynonym.dst == "人工智能").first() is None:
+            db.add(SearchSynonym(src="ai", dst="人工智能", enabled=True))
 
         category_by_slug: dict[str, Category] = {}
         for item in DEFAULT_CATEGORIES:

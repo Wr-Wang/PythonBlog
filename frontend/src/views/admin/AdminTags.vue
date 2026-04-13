@@ -135,14 +135,16 @@ async function confirmDel() {
         <button type="button" @click="openCreate">新增标签</button>
       </div>
     </div>
-    <AdminPaginationBar
-      v-if="!loading && !err && total > 0"
-      :total="total"
-      :page="page"
-      :page-size="pageSize"
-      @update:page="setPage"
-      @page-size-change="onPageSizeChange"
-    />
+    <div class="admin-pagination-wrap">
+      <AdminPaginationBar
+        v-if="!loading && !err && total > 0"
+        :total="total"
+        :page="page"
+        :page-size="pageSize"
+        @update:page="setPage"
+        @page-size-change="onPageSizeChange"
+      />
+    </div>
     <p v-if="loading" class="admin-loading">加载中…</p>
     <p v-else-if="err" class="error">{{ err }}</p>
     <div v-else class="admin-table-scroll">
@@ -163,8 +165,9 @@ async function confirmDel() {
             <td>{{ r.slug }}</td>
             <td class="admin-mono">{{ r.created_at }}</td>
             <td class="admin-ops">
-              <button type="button" class="secondary" @click="openEdit(r)">编辑</button>
-              <button type="button" class="danger" @click="askDel(r)">删除</button>
+              <a href="#" class="op-link" @click.prevent="openEdit(r)">编辑</a>
+              <span class="op-sep"> | </span>
+              <a href="#" class="op-link danger-link" @click.prevent="askDel(r)">删除</a>
             </td>
           </tr>
         </tbody>
@@ -192,5 +195,19 @@ label {
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.9rem;
+}
+.op-link {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.op-link:hover {
+  text-decoration: underline;
+}
+.danger-link {
+  color: #ef4444;
+}
+.op-sep {
+  color: var(--muted);
 }
 </style>

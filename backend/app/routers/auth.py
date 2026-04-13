@@ -15,6 +15,7 @@ from app.auth_utils import create_access_token, verify_password  # 项目内：�
 from app.database import get_db  # 项目内：会话依赖
 from app.deps import get_current_user  # 项目内：JWT 用户依赖
 from app.models import User  # 项目内：ORM
+from app.models.rbac import Menu, Permission, Role, RoleMenu, RolePermission, UserRole
 from app.rate_limit import require_rate_limit_login
 from app.schemas import Token, UserOut  # 项目内：响应模型
 
@@ -44,8 +45,38 @@ def login(
 
 
 @router.get("/me", response_model=UserOut)  # 需 Authorization: Bearer
-def me(current: User = Depends(get_current_user)):  # 依赖注入当前用户
-    return current  # ORM -> UserOut，from_attributes 生效
+def me(current: User = Depends(get_current_user), db: Session = Depends(get_db)):  # 依赖注入当前用户
+    role_rows = (
+        db.query(Role.code)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .filter(UserRole.user_id == current.id, Role.is_active == True)  # noqa: E712
+        .all()
+    )
+    roles = sorted({r[0] for r in role_rows if r and r[0]})
+    perm_rows = (
+        db.query(Permission.code)
+        .join(RolePermission, RolePermission.permission_id == Permission.id)
+        .join(UserRole, UserRole.role_id == RolePermission.role_id)
+        .filter(UserRole.user_id == current.id)
+        .all()
+    )
+    permission_codes = sorted({r[0] for r in perm_rows if r and r[0]})
+    menu_rows = (
+        db.query(Menu.route)
+        .join(RoleMenu, RoleMenu.menu_id == Menu.id)
+        .join(UserRole, UserRole.role_id == RoleMenu.role_id)
+        .filter(UserRole.user_id == current.id, Menu.hidden == False)  # noqa: E712
+        .all()
+    )
+    menus = sorted({r[0] for r in menu_rows if r and r[0]})
+    return UserOut(
+        id=current.id,
+        username=current.username,
+        is_active=current.is_active,
+        roles=roles,
+        permissions=permission_codes,
+        menus=menus,
+    )
 
 
 @router.post("/logout")

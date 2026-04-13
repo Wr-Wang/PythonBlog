@@ -21,13 +21,31 @@ function applyThemeFromUi() {
   setTheme(themePref.value);
 }
 
-const nav = [
+const navBase = [
   { to: "/admin/posts", label: "文章", sub: "撰写与列表" },
   { to: "/admin/categories", label: "分类", sub: "栏目与 slug" },
   { to: "/admin/tags", label: "标签", sub: "检索用标记" },
   { to: "/admin/users", label: "用户", sub: "后台账号" },
   { to: "/admin/comments", label: "评论", sub: "访客留言" },
+  { to: "/admin/dashboard", label: "运营看板", sub: "数据与告警" },
+  { to: "/admin/workflow", label: "流程中心", sub: "送审与发布" },
+  { to: "/admin/permissions", label: "权限管理", sub: "RBAC 与审计" },
 ];
+const allowedMenus = computed(() => {
+  try {
+    const raw = localStorage.getItem("blog_profile");
+    const profile = raw ? JSON.parse(raw) : null;
+    if (!Array.isArray(profile?.menus) || profile.menus.length === 0) return null;
+    return new Set(profile.menus);
+  } catch {
+    return null;
+  }
+});
+const nav = computed(() => {
+  const allow = allowedMenus.value;
+  if (!allow) return navBase;
+  return navBase.filter((x) => !x.to.startsWith("/admin/") || x.to === "/admin/posts" || allow.has(x.to));
+});
 
 async function logout() {
   try {
@@ -100,11 +118,11 @@ async function logout() {
 }
 
 .admin-side {
-  width: 260px;
+  width: 112px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  padding: 1.35rem 0.9rem 1rem;
+  padding: 1rem 0.65rem 0.8rem;
   background: var(--admin-aside-gradient);
   border-right: 1px solid var(--border);
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
@@ -114,14 +132,14 @@ async function logout() {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0 0.5rem 1.25rem;
+  padding: 0 0.35rem 0.85rem;
   margin-bottom: 0.25rem;
   border-bottom: 1px solid var(--border);
 }
 
 .brand-mark {
-  width: 10px;
-  height: 40px;
+  width: 8px;
+  height: 30px;
   border-radius: 4px;
   background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent) 100%);
   box-shadow: 0 0 20px rgba(91, 155, 213, 0.35);
@@ -136,12 +154,12 @@ async function logout() {
 
 .brand-name {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 0.96rem;
   letter-spacing: 0.02em;
 }
 
 .brand-tag {
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -151,18 +169,19 @@ async function logout() {
 .side-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.2rem;
   flex: 1;
-  padding-top: 1rem;
+  padding-top: 0.7rem;
 }
 
 .nav-item {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.65rem 0.85rem 0.65rem 0.95rem;
-  border-radius: 10px;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.38rem 0.38rem 0.38rem 0.5rem;
+  border-radius: 8px;
   color: var(--muted);
   text-decoration: none;
   transition: color 0.15s ease, background 0.15s ease;
@@ -192,18 +211,28 @@ async function logout() {
 
 .nav-label {
   font-weight: 600;
-  font-size: 0.94rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-sub {
-  font-size: 0.72rem;
+  display: block;
+  font-size: 0.56rem;
   color: inherit;
-  opacity: 0.85;
+  opacity: 0.76;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .side-footer {
   margin-top: auto;
-  padding-top: 1rem;
+  padding-top: 0.7rem;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -211,8 +240,8 @@ async function logout() {
 }
 
 .footer-link {
-  font-size: 0.875rem;
-  padding: 0.45rem 0.65rem;
+  font-size: 0.82rem;
+  padding: 0.38rem 0.5rem;
   color: var(--muted);
   border-radius: 8px;
 }
@@ -226,12 +255,12 @@ async function logout() {
   font: inherit;
   cursor: pointer;
   text-align: left;
-  padding: 0.45rem 0.65rem;
+  padding: 0.38rem 0.5rem;
   border: none;
   border-radius: 8px;
   background: transparent;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.82rem;
 }
 
 .footer-logout:hover {
@@ -244,6 +273,8 @@ async function logout() {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  width: 100%;
+  overflow: visible;
 }
 
 .admin-top {
@@ -297,7 +328,48 @@ async function logout() {
 .admin-content {
   flex: 1;
   padding: 1.5rem 1.75rem 2.5rem;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: auto;
+  min-width: 0;
+}
+
+/* 1366x768 常见后台分辨率：压缩头部与内容留白，提升首屏信息密度 */
+@media (max-width: 1400px) and (max-height: 800px) {
+  .admin-top {
+    padding: 0.72rem 1rem 0.72rem 1.1rem;
+  }
+  .top-crumb {
+    margin-bottom: 0.1rem;
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+  }
+  .top-page-title {
+    font-size: 1.28rem;
+    line-height: 1.1;
+  }
+  .admin-top-actions {
+    gap: 0.4rem;
+  }
+  .admin-theme-select {
+    max-width: 6.5rem;
+  }
+  .admin-content {
+    padding: 0.88rem 1rem 1.05rem;
+  }
+}
+
+.admin-content :deep(.admin-page) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: visible;
+}
+
+.admin-content :deep(.admin-toolbar),
+.admin-content :deep(.admin-pagination),
+.admin-content :deep(.admin-table-scroll) {
+  max-width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 900px) {

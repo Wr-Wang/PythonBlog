@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.rate_limit import require_rate_limit_comment_public
-from app.deps import get_current_user
+from app.deps import get_current_user, get_user_data_scope
 from app.models import Comment, Post, User
+from app.models.ops import BlacklistWord, SensitiveWord
 from app.schemas import (
     CommentAdminCreate,
     CommentAdminOut,
@@ -29,14 +30,16 @@ router = APIRouter(prefix="/api/comments", tags=["comments"])
 @router.get("/admin", response_model=Page[CommentAdminOut])
 def list_comments_admin(
     db: Annotated[Session, Depends(get_db)],
-    _: Annotated[User, Depends(get_current_user)],
+    current: Annotated[User, Depends(get_current_user)],
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=500),
 ):
-    total = db.query(Comment).count()
+    q = db.query(Comment, Post.title).join(Post, Comment.post_id == Post.id)
+    if get_user_data_scope(db, current.id) == "self":
+        q = q.filter(Post.author_id == current.id)
+    total = q.count()
     rows = (
-        db.query(Comment, Post.title)
-        .join(Post, Comment.post_id == Post.id)
+        q
         .order_by(Comment.id.desc())
         .offset(skip)
         .limit(limit)
@@ -177,6 +180,12 @@ def create_comment_public(
         content=body.content,
         status="pending",
     )
+    bl_words = [w.word for w in db.query(BlacklistWord).filter(BlacklistWord.enabled == True).all()]  # noqa: E712
+    if any(w and w in body.content for w in bl_words):
+        raise HTTPException(status_code=400, detail="评论包含黑名单词，已拦截")
+    sen_words = [w.word for w in db.query(SensitiveWord).filter(SensitiveWord.enabled == True).all()]  # noqa: E712
+    if any(w and w in body.content for w in sen_words):
+        c.status = "pending"
     db.add(c)
     db.commit()
     db.refresh(c)

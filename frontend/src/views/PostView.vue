@@ -4,8 +4,16 @@ import { useRoute } from "vue-router";
 import CommentItem from "../components/CommentItem.vue";
 import {
   createCommentPublic,
+  favoritePost,
   getPostBySlug,
+  getPostInteractionStats,
+  likePost,
   listCommentsByPost,
+  reportPost,
+  sharePost,
+  trackPostView,
+  unfavoritePost,
+  unlikePost,
 } from "../api";
 import { COMMENT_EMOJIS, insertEmojiAtCursor } from "../utils/commentEmoji";
 import { sanitizePostBodyHtml } from "../utils/postBodyRender";
@@ -31,6 +39,27 @@ const cBody = ref("");
 const cSubmitting = ref(false);
 const cFormErr = ref("");
 const commentSuccess = ref("");
+const interactionStats = ref({
+  favorite_count: 0,
+  like_count: 0,
+  view_count: 0,
+  share_count: 0,
+  report_count: 0,
+});
+const hasLiked = ref(false);
+const hasFavorited = ref(false);
+const reportReason = ref("低质内容");
+const interactionMsg = ref("");
+
+function userKey() {
+  const k = "blog_guest_key";
+  let v = localStorage.getItem(k);
+  if (!v) {
+    v = `g_${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(k, v);
+  }
+  return v;
+}
 
 const siteBase = (
   import.meta.env.VITE_PUBLIC_SITE_URL || ""
@@ -219,11 +248,76 @@ async function loadPost() {
     const { data } = await getPostBySlug(slug.value);
     post.value = data;
     cAuthor.value = randomGuestName();
+    const key = userKey();
+    await trackPostView(data.id, {
+      user_key: key,
+      duration_sec: 0,
+      completed: false,
+    });
+    const st = await getPostInteractionStats(data.id);
+    interactionStats.value = st.data || interactionStats.value;
     await loadComments(data.id);
   } catch (e) {
     err.value = e.response?.data?.detail || e.message || "加载失败";
   } finally {
     loading.value = false;
+  }
+}
+
+async function onLike() {
+  if (!post.value) return;
+  try {
+    const key = userKey();
+    if (hasLiked.value) {
+      const { data } = await unlikePost(post.value.id, key);
+      interactionStats.value.like_count = data.like_count ?? interactionStats.value.like_count;
+      hasLiked.value = false;
+    } else {
+      const { data } = await likePost(post.value.id, key);
+      interactionStats.value.like_count = data.like_count ?? interactionStats.value.like_count;
+      hasLiked.value = true;
+    }
+  } catch (e) {
+    interactionMsg.value = e.response?.data?.detail || e.message || "操作失败";
+  }
+}
+
+async function onFavorite() {
+  if (!post.value) return;
+  try {
+    const key = userKey();
+    if (hasFavorited.value) {
+      const { data } = await unfavoritePost(post.value.id, key);
+      interactionStats.value.favorite_count = data.favorite_count ?? interactionStats.value.favorite_count;
+      hasFavorited.value = false;
+    } else {
+      const { data } = await favoritePost(post.value.id, key);
+      interactionStats.value.favorite_count = data.favorite_count ?? interactionStats.value.favorite_count;
+      hasFavorited.value = true;
+    }
+  } catch (e) {
+    interactionMsg.value = e.response?.data?.detail || e.message || "操作失败";
+  }
+}
+
+async function onShare() {
+  if (!post.value) return;
+  try {
+    const { data } = await sharePost(post.value.id, "link", userKey());
+    interactionStats.value.share_count = data.share_count ?? interactionStats.value.share_count;
+    interactionMsg.value = "已记录转发";
+  } catch (e) {
+    interactionMsg.value = e.response?.data?.detail || e.message || "操作失败";
+  }
+}
+
+async function onReport() {
+  if (!post.value) return;
+  try {
+    await reportPost(post.value.id, { reason: reportReason.value, user_key: userKey() });
+    interactionMsg.value = "举报已提交";
+  } catch (e) {
+    interactionMsg.value = e.response?.data?.detail || e.message || "提交失败";
   }
 }
 
@@ -339,6 +433,13 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (post.value) {
+    trackPostView(post.value.id, {
+      user_key: userKey(),
+      duration_sec: Math.floor((performance.now?.() || 0) / 1000),
+      completed: progressPct.value >= 90,
+    }).catch(() => {});
+  }
   resetSeo();
   window.removeEventListener("scroll", updateScrollProgress);
 });
@@ -369,6 +470,24 @@ watch(slug, loadPost);
       />
       <h1>{{ post.title }}</h1>
       <p class="meta">{{ formatDate(post.created_at) }} · 约 {{ readingMinutes }} 分钟读完</p>
+      <div class="actions-row">
+        <button type="button" class="secondary small" @click="onLike">
+          {{ hasLiked ? "取消点赞" : "点赞" }}（{{ interactionStats.like_count || 0 }}）
+        </button>
+        <button type="button" class="secondary small" @click="onFavorite">
+          {{ hasFavorited ? "取消收藏" : "收藏" }}（{{ interactionStats.favorite_count || 0 }}）
+        </button>
+        <button type="button" class="secondary small" @click="onShare">
+          转发（{{ interactionStats.share_count || 0 }}）
+        </button>
+        <select v-model="reportReason" class="toolbar-select">
+          <option value="低质内容">低质内容</option>
+          <option value="疑似违规">疑似违规</option>
+          <option value="广告营销">广告营销</option>
+        </select>
+        <button type="button" class="secondary small" @click="onReport">举报</button>
+      </div>
+      <p v-if="interactionMsg" class="meta">{{ interactionMsg }}</p>
       <div class="prose" v-html="html"></div>
 
       <section class="comments card">
@@ -561,5 +680,12 @@ button.emoji-btn:hover {
   font-family: var(--font-sans, "Segoe UI", system-ui, sans-serif, "Segoe UI Emoji", "Apple Color Emoji",
     "Noto Color Emoji", emoji);
   line-height: 1.5;
+}
+.actions-row {
+  margin: 0.8rem 0 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 </style>
