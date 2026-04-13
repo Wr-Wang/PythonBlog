@@ -27,6 +27,32 @@ from app.services.comment_service import comment_to_admin_out
 router = APIRouter(prefix="/api/comments", tags=["comments"])
 
 
+def _calc_comment_level_and_parent_author(
+    db: Session,
+    comment: Comment,
+    cache: dict[int, tuple[int | None, str]],
+) -> tuple[int, str | None]:
+    level = 0
+    pid = comment.parent_id
+    parent_author = None
+    # 最多追溯 10 层，防止异常数据导致死循环
+    for _ in range(10):
+        if pid is None:
+            break
+        level += 1
+        node = cache.get(int(pid))
+        if node is None:
+            row = db.query(Comment.id, Comment.parent_id, Comment.author_name).filter(Comment.id == pid).first()
+            if row is None:
+                break
+            cache[int(row[0])] = (row[1], row[2] or "")
+            node = cache[int(pid)]
+        if level == 1:
+            parent_author = node[1] or None
+        pid = node[0]
+    return level, parent_author
+
+
 @router.get("/admin", response_model=Page[CommentAdminOut])
 def list_comments_admin(
     db: Annotated[Session, Depends(get_db)],
@@ -45,8 +71,15 @@ def list_comments_admin(
         .limit(limit)
         .all()
     )
+    chain_cache: dict[int, tuple[int | None, str]] = {}
+    for c, _ in rows:
+        chain_cache[int(c.id)] = (c.parent_id, c.author_name or "")
+    items: list[CommentAdminOut] = []
+    for c, title in rows:
+        level, parent_author = _calc_comment_level_and_parent_author(db, c, chain_cache)
+        items.append(comment_to_admin_out(c, title, level=level, parent_author_name=parent_author))
     return Page(
-        items=[comment_to_admin_out(c, title) for c, title in rows],
+        items=items,
         total=total,
     )
 
@@ -66,7 +99,8 @@ def get_comment_admin(
     if row is None:
         raise HTTPException(status_code=404, detail="评论不存在")
     c, title = row
-    return comment_to_admin_out(c, title)
+    level, parent_author = _calc_comment_level_and_parent_author(db, c, {int(c.id): (c.parent_id, c.author_name or "")})
+    return comment_to_admin_out(c, title, level=level, parent_author_name=parent_author)
 
 
 @router.post("/admin", response_model=CommentAdminOut, status_code=status.HTTP_201_CREATED)
@@ -96,7 +130,8 @@ def create_comment_admin(
     db.add(c)
     db.commit()
     db.refresh(c)
-    return comment_to_admin_out(c, post.title)
+    level, parent_author = _calc_comment_level_and_parent_author(db, c, {int(c.id): (c.parent_id, c.author_name or "")})
+    return comment_to_admin_out(c, post.title, level=level, parent_author_name=parent_author)
 
 
 @router.patch("/admin/{comment_id}", response_model=CommentAdminOut)
@@ -110,16 +145,34 @@ def update_comment_admin(
     if c is None:
         raise HTTPException(status_code=404, detail="评论不存在")
     upd = body.model_dump(exclude_unset=True, exclude={"content_b64"})
+    # 仅更新状态等字段时，不应把 content 覆盖为 None（否则触发数据库非空约束）
+    if "content" in upd and upd.get("content") is None and body.content_b64 is None:
+        upd.pop("content", None)
     # 仅传 content_b64 时，model_dump 可能不含 content；校验后由 body.content 写入
     if body.content_b64 is not None and str(body.content_b64).strip():
         upd["content"] = body.content
+    next_status = upd.get("status")
+    if next_status == "rejected":
+        rtype = str(upd.get("reject_type") or "").strip()
+        rreason = str(upd.get("reject_reason") or "").strip()
+        if not rtype:
+            raise HTTPException(status_code=400, detail="请填写拒绝类型")
+        if not rreason:
+            raise HTTPException(status_code=400, detail="请填写拒绝原因")
+        upd["reject_type"] = rtype
+        upd["reject_reason"] = rreason
+    elif next_status == "approved":
+        # 通过后清空拒绝信息
+        upd["reject_type"] = None
+        upd["reject_reason"] = None
     for k, v in upd.items():
         setattr(c, k, v)
     db.commit()
     db.refresh(c)
     post = db.query(Post).filter(Post.id == c.post_id).first()
     title = post.title if post else ""
-    return comment_to_admin_out(c, title)
+    level, parent_author = _calc_comment_level_and_parent_author(db, c, {int(c.id): (c.parent_id, c.author_name or "")})
+    return comment_to_admin_out(c, title, level=level, parent_author_name=parent_author)
 
 
 @router.delete("/admin/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -150,7 +203,7 @@ def list_comments_by_post_public(
             Comment.post_id == post_id,
             or_(Comment.status == "approved", Comment.status.is_(None)),
         )
-        .order_by(Comment.created_at.asc())
+        .order_by(Comment.created_at.desc(), Comment.id.desc())
         .all()
     )
 
@@ -178,7 +231,8 @@ def create_comment_public(
         parent_id=body.parent_id,
         author_name=body.author_name,
         content=body.content,
-        status="pending",
+        # 默认直接通过；仅命中敏感词时转为待审核
+        status="approved",
     )
     bl_words = [w.word for w in db.query(BlacklistWord).filter(BlacklistWord.enabled == True).all()]  # noqa: E712
     if any(w and w in body.content for w in bl_words):

@@ -5,21 +5,24 @@ import {
   addSearchSynonym,
   addSensitiveWord,
   exportDashboardTrends,
-  getDashboardSummary,
   getDashboardTrends,
+  getDashboardVisual,
   getModerationLists,
   getSearchOps,
   listFeatureFlags,
+  listSensitiveGroups,
+  toggleSensitiveGroup,
   updateFeatureFlag,
 } from "../../api";
 import { hasPermission } from "../../utils/permissions";
 
 const loading = ref(false);
 const err = ref("");
-const data = ref(null);
+const visual = ref(null);
 const trends = ref([]);
 const featureFlags = ref([]);
 const moderation = ref({ sensitive_words: [], blacklist_words: [] });
+const sensitiveGroups = ref([]);
 const searchOps = ref({ hotwords: [], synonyms: [] });
 const newSensitive = ref("");
 const newBlacklist = ref("");
@@ -27,19 +30,61 @@ const newSynSrc = ref("");
 const newSynDst = ref("");
 const startDate = ref("");
 const endDate = ref("");
+const categoryId = ref("");
+const authorId = ref("");
+const reviewStatus = ref("all");
+const activeTab = ref("overview");
 const exporting = ref(false);
 const canViewDashboard = hasPermission("admin.dashboard.view");
 const canExportDashboard = hasPermission("admin.dashboard.export");
 const canManageFlags = hasPermission("admin.flags.manage");
 const canManageModeration = hasPermission("admin.moderation.manage");
 const canManageSearchOps = hasPermission("admin.searchops.manage");
-
-const maxViews = computed(() =>
-  Math.max(
-    1,
-    ...trends.value.map((x) => Number(x.views || 0)),
-  ),
+const moderationLoadErr = ref("");
+const normalizedSensitiveGroups = computed(() =>
+  (Array.isArray(sensitiveGroups.value) ? sensitiveGroups.value : []).map((g, idx) => {
+    const words = Array.isArray(g?.words) ? g.words : [];
+    const totalWords = Number.isFinite(Number(g?.total_words)) ? Number(g.total_words) : words.length;
+    const enabledWords = Number.isFinite(Number(g?.enabled_words))
+      ? Number(g.enabled_words)
+      : g?.all_enabled
+        ? totalWords
+        : 0;
+    return {
+      code: g?.code || `group-${idx}`,
+      name: g?.name || g?.code || `分组${idx + 1}`,
+      total_words: totalWords,
+      enabled_words: enabledWords,
+      all_enabled: typeof g?.all_enabled === "boolean" ? g.all_enabled : totalWords > 0 && enabledWords >= totalWords,
+      words,
+    };
+  }),
 );
+
+const kpi = computed(() => visual.value?.kpi || {});
+const filterOptions = computed(() => visual.value?.filter_options || { categories: [], authors: [], review_statuses: [] });
+const trendModules = computed(() => [
+  { key: "views", label: "浏览趋势", tone: "views" },
+  { key: "likes", label: "点赞趋势", tone: "likes" },
+  { key: "comments", label: "评论趋势", tone: "comments" },
+  { key: "published_posts", label: "发布趋势", tone: "published" },
+]);
+const funnel = computed(() => visual.value?.workflow_funnel || []);
+const funnelMax = computed(() => Math.max(1, ...funnel.value.map((x) => Number(x.count || 0))));
+
+function fieldMax(field) {
+  return Math.max(1, ...trends.value.map((item) => Number(item[field] || 0)));
+}
+
+function buildPath(field, max) {
+  if (!trends.value.length) return "";
+  const points = trends.value.map((item, idx) => {
+    const x = trends.value.length === 1 ? 190 : Math.round((idx / (trends.value.length - 1)) * 380);
+    const y = Math.round(130 - (Number(item[field] || 0) / max) * 110);
+    return `${x},${y}`;
+  });
+  return `M ${points.join(" L ")}`;
+}
 
 function defaultDateRange() {
   const now = new Date();
@@ -58,21 +103,64 @@ async function load() {
     return;
   }
   try {
+    const params = {
+      start_date: startDate.value,
+      end_date: endDate.value,
+      category_id: categoryId.value || undefined,
+      author_id: authorId.value || undefined,
+      review_status: reviewStatus.value === "all" ? undefined : reviewStatus.value,
+    };
     const [res1, res2] = await Promise.all([
-      getDashboardSummary(),
-      getDashboardTrends({ start_date: startDate.value, end_date: endDate.value }),
+      getDashboardVisual(params),
+      getDashboardTrends(params),
     ]);
-    data.value = res1.data;
+    visual.value = res1.data || null;
     trends.value = res2.data.points || [];
-    const [f1, f2, f3] = await Promise.all([listFeatureFlags(), getModerationLists(), getSearchOps()]);
-    featureFlags.value = f1.data || [];
-    moderation.value = f2.data || { sensitive_words: [], blacklist_words: [] };
-    searchOps.value = f3.data || { hotwords: [], synonyms: [] };
+    moderationLoadErr.value = "";
+    const [f1, f2, f3, f4] = await Promise.allSettled([
+      listFeatureFlags(),
+      getModerationLists(),
+      getSearchOps(),
+      listSensitiveGroups(),
+    ]);
+    featureFlags.value = f1.status === "fulfilled" ? (f1.value.data || []) : [];
+    moderation.value =
+      f2.status === "fulfilled"
+        ? (f2.value.data || { sensitive_words: [], blacklist_words: [] })
+        : { sensitive_words: [], blacklist_words: [] };
+    searchOps.value = f3.status === "fulfilled" ? (f3.value.data || { hotwords: [], synonyms: [] }) : { hotwords: [], synonyms: [] };
+    if (f4.status === "fulfilled") {
+      const raw = f4.value.data;
+      if (Array.isArray(raw)) {
+        sensitiveGroups.value = raw;
+      } else if (raw && typeof raw === "object") {
+        // 兼容后端返回 map 结构：{ code: {...} }
+        sensitiveGroups.value = Object.values(raw);
+      } else {
+        sensitiveGroups.value = [];
+      }
+    } else {
+      sensitiveGroups.value = [];
+    }
+    if (f2.status === "rejected" || f4.status === "rejected") {
+      moderationLoadErr.value = "审核策略部分数据加载失败，已降级展示";
+    }
   } catch (e) {
     err.value = e.response?.data?.detail || e.message || "加载失败";
   } finally {
     loading.value = false;
   }
+}
+
+async function onToggleSensitiveGroup(g) {
+  await toggleSensitiveGroup(g.code, !g.all_enabled);
+  await load();
+}
+
+function shortWords(list, limit = 12) {
+  const arr = Array.isArray(list) ? list : [];
+  if (arr.length <= limit) return arr.join("、") || "—";
+  return `${arr.slice(0, limit).join("、")} ...（共 ${arr.length} 个）`;
 }
 
 async function toggleFlag(row) {
@@ -111,6 +199,9 @@ async function onExport(format) {
     const res = await exportDashboardTrends(format, {
       start_date: startDate.value,
       end_date: endDate.value,
+      category_id: categoryId.value || undefined,
+      author_id: authorId.value || undefined,
+      review_status: reviewStatus.value === "all" ? undefined : reviewStatus.value,
     });
     const blob = new Blob([res.data], { type: res.headers["content-type"] || "application/octet-stream" });
     const a = document.createElement("a");
@@ -130,15 +221,44 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="card">
-    <h2>运营总览</h2>
-    <p v-if="loading" class="meta">加载中…</p>
-    <p v-else-if="err" class="error">{{ err }}</p>
-    <div v-else-if="data" class="grid">
-      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem">
+  <section class="admin-page dashboard-page">
+    <div class="card">
+      <h2>运营看板</h2>
+      <div class="dashboard-tabs">
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">概览</button>
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'trends' }" @click="activeTab = 'trends'">趋势</button>
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'ranking' }" @click="activeTab = 'ranking'">排行</button>
+        <button type="button" class="tab-btn" :class="{ active: activeTab === 'strategy' }" @click="activeTab = 'strategy'">运营策略</button>
+      </div>
+      <div class="admin-toolbar-actions filter-bar">
         <label>开始 <input v-model="startDate" type="date" /></label>
         <label>结束 <input v-model="endDate" type="date" /></label>
-        <button type="button" class="secondary" @click="load">刷新趋势</button>
+        <label
+          >分类
+          <select v-model="categoryId">
+            <option value="">全部</option>
+            <option v-for="x in filterOptions.categories || []" :key="x.id" :value="x.id">{{ x.name }}</option>
+          </select>
+        </label>
+        <label
+          >作者
+          <select v-model="authorId">
+            <option value="">全部</option>
+            <option v-for="x in filterOptions.authors || []" :key="x.id" :value="x.id">{{ x.name }}</option>
+          </select>
+        </label>
+        <label
+          >状态
+          <select v-model="reviewStatus">
+            <option value="all">全部</option>
+            <option value="draft">草稿</option>
+            <option value="pending">待审</option>
+            <option value="approved">已发布</option>
+            <option value="rejected">已拒绝</option>
+            <option value="offline">已下线</option>
+          </select>
+        </label>
+        <button type="button" class="secondary" @click="load">刷新</button>
         <button v-if="canExportDashboard" type="button" class="secondary" :disabled="exporting" @click="onExport('csv')">
           导出 CSV
         </button>
@@ -146,62 +266,148 @@ onMounted(() => {
           导出 XLSX
         </button>
       </div>
-      <p>文章总数：{{ data.posts_total }}</p>
-      <p>已发布：{{ data.published_total }}</p>
-      <p>待审核：{{ data.pending_total }}</p>
-      <p>评论总数：{{ data.comments_total }}</p>
-      <p>待审核评论：{{ data.comments_pending }}</p>
-      <p>待处理举报：{{ data.reports_pending }}</p>
-      <div class="hot-list">
-        <h3>热度 TOP10</h3>
-        <ol>
-          <li v-for="it in data.top_hot_posts || []" :key="it.id">
-            {{ it.title }}（{{ it.hot_score }}）
-          </li>
-        </ol>
+    </div>
+    <p v-if="loading" class="meta">加载中…</p>
+    <p v-else-if="err" class="error">{{ err }}</p>
+    <div v-else-if="visual" class="dashboard-grid">
+      <div v-if="activeTab === 'overview'" class="card kpi-grid">
+        <article class="kpi-item">
+          <span>文章总数</span>
+          <strong>{{ kpi.posts_total || 0 }}</strong>
+        </article>
+        <article class="kpi-item">
+          <span>已发布</span>
+          <strong>{{ kpi.published_total || 0 }}</strong>
+        </article>
+        <article class="kpi-item">
+          <span>发布率</span>
+          <strong>{{ (kpi.publish_rate || 0).toFixed(2) }}%</strong>
+        </article>
+        <article class="kpi-item">
+          <span>待审核文章</span>
+          <strong>{{ kpi.pending_total || 0 }}</strong>
+        </article>
+        <article class="kpi-item">
+          <span>待审核评论</span>
+          <strong>{{ kpi.comments_pending || 0 }}</strong>
+        </article>
+        <article class="kpi-item">
+          <span>待处理举报</span>
+          <strong>{{ kpi.reports_pending || 0 }}</strong>
+        </article>
       </div>
-      <div class="hot-list">
-        <h3>浏览趋势（按日）</h3>
-        <div v-if="trends.length" class="trend-wrap">
-          <div v-for="p in trends" :key="p.date" class="trend-row">
-            <span class="trend-date">{{ p.date }}</span>
-            <span class="trend-bar"><i :style="{ width: `${(Number(p.views || 0) / maxViews) * 100}%` }" /></span>
-            <span class="trend-val">浏览 {{ p.views }} / 点赞 {{ p.likes }} / 收藏 {{ p.favorites }}</span>
+
+      <div v-if="activeTab === 'trends'" class="card span-2">
+        <h3>多指标趋势图</h3>
+        <div class="trend-modules">
+          <article v-for="m in trendModules" :key="m.key" class="trend-module">
+            <header>
+              <span class="dot" :class="m.tone">{{ m.label }}</span>
+              <strong>{{ fieldMax(m.key) }}</strong>
+            </header>
+            <svg viewBox="0 0 380 150" class="mini-trend-svg">
+              <path d="M 0 130 L 380 130" class="axis" />
+              <path :d="buildPath(m.key, fieldMax(m.key))" class="line" :class="m.tone" />
+            </svg>
+          </article>
+        </div>
+      </div>
+
+      <div v-if="activeTab === 'overview'" class="card">
+        <h3>流程漏斗</h3>
+        <div class="funnel">
+          <div v-for="x in funnel" :key="x.key" class="funnel-row">
+            <span>{{ x.label }}</span>
+            <i :style="{ width: `${(Number(x.count || 0) / funnelMax) * 100}%` }"></i>
+            <em>{{ x.count }}</em>
           </div>
         </div>
       </div>
-      <div class="hot-list">
-        <h3>灰度开关</h3>
-        <ul>
-          <li v-for="f in featureFlags" :key="f.id">
-            {{ f.name }}（{{ f.code }}）: {{ f.enabled ? "开启" : "关闭" }}
-            <button v-if="canManageFlags" type="button" class="secondary small" @click="toggleFlag(f)">
-              切换
-            </button>
+
+      <div v-if="activeTab === 'overview'" class="card">
+        <h3>分类分布 Top8</h3>
+        <ul class="rank-list">
+          <li v-for="x in visual.category_distribution || []" :key="x.name">
+            <span>{{ x.name }}</span>
+            <strong>{{ x.count }}</strong>
           </li>
         </ul>
       </div>
-      <div class="hot-list">
-        <h3>审核策略</h3>
-        <p>敏感词：{{ moderation.sensitive_words?.join("、") || "—" }}</p>
-        <p>黑名单词：{{ moderation.blacklist_words?.join("、") || "—" }}</p>
-        <div v-if="canManageModeration" style="display: flex; gap: 0.5rem; flex-wrap: wrap">
-          <input v-model="newSensitive" placeholder="新增敏感词" />
-          <button type="button" class="secondary" @click="addSensitive">添加敏感词</button>
-          <input v-model="newBlacklist" placeholder="新增黑名单词" />
-          <button type="button" class="secondary" @click="addBlacklist">添加黑名单词</button>
-        </div>
-      </div>
-      <div class="hot-list">
-        <h3>搜索运营</h3>
-        <p>热词：{{ (searchOps.hotwords || []).slice(0, 10).map((x) => `${x.keyword}(${x.cnt})`).join("、") || "—" }}</p>
-        <ul>
-          <li v-for="s in searchOps.synonyms || []" :key="s.id">{{ s.src }} -> {{ s.dst }}</li>
+
+      <div v-if="activeTab === 'overview'" class="card">
+        <h3>标签分布 Top8</h3>
+        <ul class="rank-list">
+          <li v-for="x in visual.tag_distribution || []" :key="x.name">
+            <span>{{ x.name }}</span>
+            <strong>{{ x.count }}</strong>
+          </li>
         </ul>
-        <div v-if="canManageSearchOps" style="display: flex; gap: 0.5rem; flex-wrap: wrap">
-          <input v-model="newSynSrc" placeholder="同义词原词" />
-          <input v-model="newSynDst" placeholder="同义词目标词" />
-          <button type="button" class="secondary" @click="addSyn">新增同义词</button>
+      </div>
+
+      <div v-if="activeTab === 'ranking'" class="card">
+        <h3>热度 Top10</h3>
+        <ol class="top-list">
+          <li v-for="it in visual.top_hot_posts || []" :key="it.id">
+            <span class="title">{{ it.title }}</span>
+            <span class="meta">热度 {{ it.hot_score }} / 浏览 {{ it.views }}</span>
+          </li>
+        </ol>
+      </div>
+
+      <div v-if="activeTab === 'ranking'" class="card">
+        <h3>风险 Top10</h3>
+        <ol class="top-list">
+          <li v-for="it in visual.top_risk_posts || []" :key="it.id">
+            <span class="title">{{ it.title }}</span>
+            <span class="meta">举报 {{ it.report_count }}</span>
+          </li>
+        </ol>
+      </div>
+
+      <div v-if="activeTab === 'strategy'" class="card span-2">
+        <h3>运营动作区</h3>
+        <div class="ops-row">
+          <div>
+            <h4>灰度开关</h4>
+            <ul>
+              <li v-for="f in featureFlags" :key="f.id">
+                {{ f.name }}（{{ f.code }}）: {{ f.enabled ? "开启" : "关闭" }}
+                <button v-if="canManageFlags" type="button" class="secondary small" @click="toggleFlag(f)">切换</button>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4>审核策略</h4>
+            <p>敏感词：{{ shortWords(moderation.sensitive_words) }}</p>
+            <p>黑名单词：{{ shortWords(moderation.blacklist_words) }}</p>
+            <p v-if="moderationLoadErr" class="error">{{ moderationLoadErr }}</p>
+            <div class="group-list">
+              <div v-for="g in normalizedSensitiveGroups" :key="g.code" class="group-item">
+                <span>{{ g.name }}（{{ g.enabled_words }}/{{ g.total_words }}）</span>
+                <button v-if="canManageModeration" type="button" class="secondary small" @click="onToggleSensitiveGroup(g)">
+                  {{ g.all_enabled ? "整组停用" : "整组启用" }}
+                </button>
+              </div>
+            </div>
+            <div v-if="canManageModeration" class="action-inputs">
+              <input v-model="newSensitive" placeholder="新增敏感词" />
+              <button type="button" class="secondary" @click="addSensitive">添加敏感词</button>
+              <input v-model="newBlacklist" placeholder="新增黑名单词" />
+              <button type="button" class="secondary" @click="addBlacklist">添加黑名单词</button>
+            </div>
+          </div>
+          <div>
+            <h4>搜索运营</h4>
+            <p>热词：{{ (searchOps.hotwords || []).slice(0, 10).map((x) => `${x.keyword}(${x.cnt})`).join("、") || "—" }}</p>
+            <ul>
+              <li v-for="s in searchOps.synonyms || []" :key="s.id">{{ s.src }} -> {{ s.dst }}</li>
+            </ul>
+            <div v-if="canManageSearchOps" class="action-inputs">
+              <input v-model="newSynSrc" placeholder="同义词原词" />
+              <input v-model="newSynDst" placeholder="同义词目标词" />
+              <button type="button" class="secondary" @click="addSyn">新增同义词</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -209,34 +415,211 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.trend-wrap {
+.dashboard-page {
+  display: grid;
+  gap: 0.7rem;
+}
+.filter-bar {
+  margin-top: 0.45rem;
+}
+.dashboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.tab-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  cursor: pointer;
+}
+.tab-btn.active {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.dashboard-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.span-2 {
+  grid-column: span 2;
+}
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.kpi-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem;
+}
+.kpi-item span {
+  color: var(--muted);
+}
+.kpi-item strong {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 1.2rem;
+}
+.trend-legend {
+  display: flex;
+  gap: 0.7rem;
+}
+.dot::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+.dot.views::before,
+.line.views {
+  stroke: #2f81f7;
+  background: #2f81f7;
+}
+.dot.likes::before,
+.line.likes {
+  stroke: #f59e0b;
+  background: #f59e0b;
+}
+.dot.comments::before,
+.line.comments {
+  stroke: #10b981;
+  background: #10b981;
+}
+.dot.published::before,
+.line.published {
+  stroke: #a855f7;
+  background: #a855f7;
+}
+.trend-chart-wrap {
+  margin-top: 0.45rem;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 0.35rem;
+}
+.trend-y {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  justify-content: space-between;
+  color: var(--muted);
 }
-.trend-row {
+.trend-svg {
+  width: 100%;
+  height: 240px;
+}
+.trend-modules {
   display: grid;
-  grid-template-columns: 110px 1fr 200px;
-  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.trend-module {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+}
+.trend-module header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+.mini-trend-svg {
+  width: 100%;
+  height: 120px;
+}
+.axis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.line {
+  fill: none;
+  stroke-width: 2.2;
+}
+.trend-x {
+  margin-left: 36px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+  color: var(--muted);
+}
+.funnel {
+  display: grid;
+  gap: 0.45rem;
+}
+.funnel-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 52px;
+  gap: 0.4rem;
   align-items: center;
 }
-.trend-date {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-}
-.trend-bar {
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-.trend-bar i {
+.funnel-row i {
   display: block;
-  height: 100%;
-  background: var(--accent);
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #0ea5e9);
 }
-.trend-val {
+.funnel-row em {
   color: var(--muted);
-  font-size: 12px;
+  font-style: normal;
+}
+.rank-list,
+.top-list {
+  margin: 0;
+  padding-left: 1rem;
+}
+.rank-list li,
+.top-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.2rem 0;
+}
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ops-row {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.action-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.group-list {
+  margin: 0.35rem 0 0.5rem;
+  display: grid;
+  gap: 0.35rem;
+}
+.group-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+@media (max-width: 1100px) {
+  .dashboard-grid,
+  .ops-row {
+    grid-template-columns: 1fr;
+  }
+  .span-2 {
+    grid-column: span 1;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .trend-modules {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

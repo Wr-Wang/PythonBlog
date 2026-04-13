@@ -27,6 +27,7 @@ from app.routers import (
     tags,
     upload,
     users_admin,
+    workflow,
 )
 
 # backend/app/main.py → 上两级为 backend，再上为项目根 PythonBlog
@@ -70,6 +71,7 @@ app.include_router(users_admin.router)
 app.include_router(comments.router)
 app.include_router(rbac.router)
 app.include_router(ops.router)
+app.include_router(workflow.router)
 app.include_router(upload.router)
 
 # 用户上传图片，URL 形如 /uploads/<filename>

@@ -1,0 +1,71 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [19904]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:27239 (Press CTRL+C to quit)
+INFO:     127.0.0.1:53987:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53987:0 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53987:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /admin/home HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57299:0 - "GET /assets/index-Cd5BhxBY.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /assets/index-CW5ql_8f.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57299:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "POST /api/auth/logout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/users/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:61286:0 - "GET /admin/home HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61077:0 - "GET /assets/index-Cd5BhxBY.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /assets/index-CW5ql_8f.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61077:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:61286:0 - "POST /api/auth/logout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61077:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61077:0 - "GET /api/posts/admin?skip=0&limit=20&sort_by=created_at&sort_dir=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61077:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61286:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61077:0 - "GET /api/admin/rbac/roles?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63277:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55872:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55872:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55872:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55872:0 - "GET /admin/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55872:0 - "GET /assets/index-CW5ql_8f.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53771:0 - "GET /assets/index-Cd5BhxBY.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53771:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55872:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51172:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53771:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55872:0 - "GET /api/admin/rbac/roles?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "POST /api/auth/logout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:61789:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61789:0 - "GET /api/users/admin?skip=0&limit=20 HTTP/1.1" 200 OK

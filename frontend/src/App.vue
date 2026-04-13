@@ -61,7 +61,7 @@ async function logout() {
       <nav>
         <router-link to="/">首页</router-link>
         <router-link to="/search">搜索</router-link>
-        <router-link to="/admin/posts">管理</router-link>
+        <router-link to="/admin/home">管理</router-link>
         <div class="header-tools">
           <label class="sr-only" for="pub-theme">外观</label>
           <select

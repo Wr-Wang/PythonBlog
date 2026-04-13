@@ -15,6 +15,7 @@ from app.config import settings
 from app.content_sanitize import sanitize_post_content
 from app.database import Base, SessionLocal, engine
 from app.db_migrate import (
+    ensure_comment_reject_columns,
     ensure_comment_status_column,
     ensure_comments_unicode_columns,
     ensure_posts_extra_columns,
@@ -23,6 +24,7 @@ from app.db_migrate import (
 from app.models import Category, Comment, Post, Tag, User
 from app.models.ops import BlacklistWord, FeatureFlag, SearchSynonym, SensitiveWord
 from app.models.rbac import Menu, Permission, Role, RoleMenu, RolePermission, UserRole
+from app.models.workflow import WorkflowReasonTemplate
 
 DEFAULT_CATEGORIES = [
     {"name": "技术", "slug": "tech"},
@@ -145,6 +147,7 @@ def init_db() -> None:
     ensure_roles_data_scope_column(engine)
     ensure_comments_unicode_columns(engine)
     ensure_comment_status_column(engine)
+    ensure_comment_reject_columns(engine)
 
     admin_user = settings.admin_username
     admin_pass = settings.admin_password
@@ -252,7 +255,52 @@ def init_db() -> None:
             )
         if db.query(FeatureFlag).filter(FeatureFlag.code == "search.ops").first() is None:
             db.add(FeatureFlag(code="search.ops", name="搜索运营", enabled=True, rollout_percent=100))
-        for w in ["违禁词", "辱骂词"]:
+        # 评论审核敏感词（命中则进入 pending；未命中直接通过）
+        for w in [
+            "违禁词",
+            "辱骂词",
+            "傻X",
+            "傻逼",
+            "脑残",
+            "滚出去",
+            "去死",
+            "废物",
+            "狗东西",
+            "畜生",
+            "贱人",
+            "有病吧",
+            "诈骗",
+            "博彩",
+            "赌博",
+            "代开发票",
+            "办证",
+            "洗钱",
+            "黄赌毒",
+            "色情",
+            "成人交易",
+            "约炮",
+            "一夜情",
+            "成人视频",
+            "兼职刷单",
+            "返利骗局",
+            "高回报稳赚",
+            "躺赚",
+            "秒到账",
+            "外挂",
+            "木马",
+            "钓鱼网站",
+            "免实名",
+            "跑分",
+            "黑客接单",
+            "社工库",
+            "网赚",
+            "引流",
+            "加V私聊",
+            "VX联系",
+            "QQ私聊",
+            "Telegram群",
+            "飞机群",
+        ]:
             if db.query(SensitiveWord).filter(SensitiveWord.word == w).first() is None:
                 db.add(SensitiveWord(word=w, enabled=True))
         for w in ["spam", "刷屏"]:
@@ -260,6 +308,14 @@ def init_db() -> None:
                 db.add(BlacklistWord(word=w, enabled=True))
         if db.query(SearchSynonym).filter(SearchSynonym.src == "ai", SearchSynonym.dst == "人工智能").first() is None:
             db.add(SearchSynonym(src="ai", dst="人工智能", enabled=True))
+        reason_templates = [
+            ("事实性错误", "存在事实性错误，需修订后重提。"),
+            ("质量不达标", "内容质量未达发布标准，请补充案例与论证。"),
+            ("合规风险", "存在潜在合规风险，请调整措辞并补充来源说明。"),
+        ]
+        for name, content in reason_templates:
+            if db.query(WorkflowReasonTemplate).filter(WorkflowReasonTemplate.name == name).first() is None:
+                db.add(WorkflowReasonTemplate(name=name, content=content, enabled=True))
 
         category_by_slug: dict[str, Category] = {}
         for item in DEFAULT_CATEGORIES:

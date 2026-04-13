@@ -53,3 +53,26 @@ INFO:     127.0.0.1:54314:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
 INFO:     127.0.0.1:54314:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
 INFO:     127.0.0.1:54314:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
 INFO:     127.0.0.1:54314:0 - "GET /api/admin/rbac/roles/2/bindings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53471:0 - "GET /admin/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53471:0 - "GET /assets/index--tEwE2YG.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:52179:0 - "GET /assets/index-DpYo92I9.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:53471:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62897:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53471:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /api/admin/rbac/roles?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58667:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58667:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58667:0 - "GET /api/posts?published_only=true&skip=0&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58667:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58667:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /api/posts/admin?skip=0&limit=20&sort_by=created_at&sort_dir=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /admin/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58667:0 - "GET /assets/index-DpYo92I9.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /assets/index--tEwE2YG.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58667:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58667:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52179:0 - "GET /api/posts/admin?skip=0&limit=20&sort_by=created_at&sort_dir=desc HTTP/1.1" 200 OK

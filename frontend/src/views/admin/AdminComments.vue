@@ -38,6 +38,12 @@ const lockPost = ref(false);
 const delOpen = ref(false);
 const delRow = ref(null);
 const delMsg = ref("");
+const rejectOpen = ref(false);
+const rejectRow = ref(null);
+const rejectType = ref("违规内容");
+const rejectReason = ref("评论内容涉及违规或不当表达，未通过审核。");
+const rejectErr = ref("");
+const rejecting = ref(false);
 
 async function loadPosts() {
   const { data } = await adminListPosts({ skip: 0, limit: 500 });
@@ -186,10 +192,41 @@ watch([fPostId, formOpen, mode], () => {
 
 async function setStatus(r, status) {
   try {
-    await updateCommentAdmin(r.id, { status });
+    if (status === "rejected") {
+      rejectRow.value = r;
+      rejectType.value = "违规内容";
+      rejectReason.value = "评论内容涉及违规或不当表达，未通过审核。";
+      rejectErr.value = "";
+      rejectOpen.value = true;
+      return;
+    }
+    await updateCommentAdmin(r.id, { status, reject_type: null, reject_reason: null });
     await load();
   } catch (e) {
     alert(e.response?.data?.detail || e.message || "更新失败");
+  }
+}
+
+async function confirmReject() {
+  if (!rejectRow.value) return;
+  if (!rejectType.value.trim() || !rejectReason.value.trim()) {
+    rejectErr.value = "请填写拒绝类型和拒绝原因";
+    return;
+  }
+  rejecting.value = true;
+  rejectErr.value = "";
+  try {
+    await updateCommentAdmin(rejectRow.value.id, {
+      status: "rejected",
+      reject_type: rejectType.value.trim(),
+      reject_reason: rejectReason.value.trim(),
+    });
+    rejectOpen.value = false;
+    await load();
+  } catch (e) {
+    rejectErr.value = e.response?.data?.detail || e.message || "拒绝失败";
+  } finally {
+    rejecting.value = false;
   }
 }
 
@@ -230,24 +267,41 @@ async function confirmDel() {
         <thead>
           <tr>
             <th>编号</th>
+            <th>层级</th>
             <th>文章编号</th>
             <th>文章标题</th>
             <th>作者昵称</th>
+            <th>回复对象</th>
             <th>内容</th>
             <th>创建时间</th>
             <th>审核状态</th>
+            <th>拒绝信息</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="r in rows" :key="r.id">
             <td>{{ r.id }}</td>
+            <td class="admin-mono">L{{ r.level ?? 0 }}</td>
             <td>{{ r.post_id }}</td>
             <td class="admin-cell-clip">{{ r.post_title }}</td>
             <td class="comment-text">{{ r.author_name }}</td>
-            <td class="admin-cell-clip comment-text">{{ r.content }}</td>
+            <td class="comment-text">{{ r.parent_author_name || (r.parent_id ? `#${r.parent_id}` : "主评论") }}</td>
+            <td class="admin-cell-clip comment-text">
+              <div
+                class="comment-node"
+                :class="{ child: Number(r.level || 0) > 0 }"
+                :style="{ paddingLeft: `${Math.min(Number(r.level || 0), 5) * 16}px` }"
+              >
+                {{ r.content }}
+              </div>
+            </td>
             <td class="admin-mono">{{ r.created_at }}</td>
             <td class="admin-mono">{{ r.status || "approved" }}</td>
+            <td class="admin-cell-clip">
+              <span v-if="r.status === 'rejected'">{{ r.reject_type || "未分类" }}：{{ r.reject_reason || "—" }}</span>
+              <span v-else>—</span>
+            </td>
             <td class="admin-ops">
               <a
                 v-if="r.status === 'pending'"
@@ -318,6 +372,28 @@ async function confirmDel() {
     </BaseModal>
 
     <ConfirmDialog :open="delOpen" title="删除评论" :message="delMsg" @close="delOpen = false" @confirm="confirmDel" />
+    <BaseModal :open="rejectOpen" title="拒绝评论" @close="rejectOpen = false">
+      <p class="meta">评论ID：{{ rejectRow?.id || "-" }}</p>
+      <label style="margin-top: 0.75rem">
+        拒绝类型
+        <select v-model="rejectType">
+          <option value="违规内容">违规内容</option>
+          <option value="广告营销">广告营销</option>
+          <option value="辱骂攻击">辱骂攻击</option>
+          <option value="低质灌水">低质灌水</option>
+          <option value="其他">其他</option>
+        </select>
+      </label>
+      <label style="margin-top: 0.75rem">
+        拒绝原因
+        <textarea v-model="rejectReason" rows="4" class="comment-content-input" />
+      </label>
+      <p v-if="rejectErr" class="error" style="margin-top: 0.75rem">{{ rejectErr }}</p>
+      <template #footer>
+        <button type="button" class="secondary" @click="rejectOpen = false">取消</button>
+        <button type="button" :disabled="rejecting" @click="confirmReject">{{ rejecting ? "提交中…" : "确认拒绝" }}</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -400,5 +476,22 @@ button.emoji-btn:hover {
 }
 .op-sep {
   color: var(--muted);
+}
+.comment-node {
+  position: relative;
+}
+.comment-node::before {
+  display: none;
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 999px;
+}
+.comment-node.child::before {
+  display: block;
 }
 </style>

@@ -12,6 +12,7 @@ from app.models.post import Post
 from app.models.rbac import AuditLog, Menu, Permission, Role, RoleMenu, RolePermission, UserRole
 from app.models.tag import Tag
 from app.models.user import User
+from app.models.workflow import WorkflowAudit, WorkflowReasonTemplate
 
 __all__ = [
     "post_tags_table",
@@ -37,4 +38,6 @@ __all__ = [
     "AuditLog",
     "Tag",
     "User",
+    "WorkflowReasonTemplate",
+    "WorkflowAudit",
 ]

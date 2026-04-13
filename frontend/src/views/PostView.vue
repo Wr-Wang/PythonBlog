@@ -49,7 +49,21 @@ const interactionStats = ref({
 const hasLiked = ref(false);
 const hasFavorited = ref(false);
 const reportReason = ref("低质内容");
+const shareChannel = ref("link");
+const sharePanelOpen = ref(false);
 const interactionMsg = ref("");
+const shareChannelLabel = {
+  link: "复制链接",
+  wechat: "微信",
+  weibo: "微博",
+  qq: "QQ",
+};
+const shareOptions = [
+  { value: "link", label: "复制链接", icon: "L" },
+  { value: "wechat", label: "微信", icon: "W" },
+  { value: "weibo", label: "微博", icon: "B" },
+  { value: "qq", label: "QQ", icon: "Q" },
+];
 
 function userKey() {
   const k = "blog_guest_key";
@@ -303,12 +317,18 @@ async function onFavorite() {
 async function onShare() {
   if (!post.value) return;
   try {
-    const { data } = await sharePost(post.value.id, "link", userKey());
+    const channel = shareChannel.value || "link";
+    const { data } = await sharePost(post.value.id, channel, userKey());
     interactionStats.value.share_count = data.share_count ?? interactionStats.value.share_count;
-    interactionMsg.value = "已记录转发";
+    interactionMsg.value = `已记录转发到：${shareChannelLabel[channel] || channel}`;
+    sharePanelOpen.value = false;
   } catch (e) {
     interactionMsg.value = e.response?.data?.detail || e.message || "操作失败";
   }
+}
+
+function toggleSharePanel() {
+  sharePanelOpen.value = !sharePanelOpen.value;
 }
 
 async function onReport() {
@@ -364,6 +384,18 @@ function nestComments(flat) {
       roots.push(node);
     }
   });
+  const byNewest = (a, b) => {
+    const ta = new Date(a.created_at || 0).getTime();
+    const tb = new Date(b.created_at || 0).getTime();
+    if (tb !== ta) return tb - ta;
+    return Number(b.id || 0) - Number(a.id || 0);
+  };
+  roots.sort(byNewest);
+  map.forEach((node) => {
+    if (Array.isArray(node.children) && node.children.length > 1) {
+      node.children.sort(byNewest);
+    }
+  });
   return roots;
 }
 
@@ -409,7 +441,7 @@ async function submitComment() {
       content,
       parent_id: replyTo.value ? replyTo.value.id : null,
     });
-    commentSuccess.value = "评论已提交，审核通过后将显示在下方。";
+    commentSuccess.value = "评论发表成功，已显示在下方最新评论。";
     cAuthor.value = randomGuestName();
     cBody.value = "";
     replyTo.value = null;
@@ -470,22 +502,66 @@ watch(slug, loadPost);
       />
       <h1>{{ post.title }}</h1>
       <p class="meta">{{ formatDate(post.created_at) }} · 约 {{ readingMinutes }} 分钟读完</p>
-      <div class="actions-row">
-        <button type="button" class="secondary small" @click="onLike">
-          {{ hasLiked ? "取消点赞" : "点赞" }}（{{ interactionStats.like_count || 0 }}）
-        </button>
-        <button type="button" class="secondary small" @click="onFavorite">
-          {{ hasFavorited ? "取消收藏" : "收藏" }}（{{ interactionStats.favorite_count || 0 }}）
-        </button>
-        <button type="button" class="secondary small" @click="onShare">
-          转发（{{ interactionStats.share_count || 0 }}）
-        </button>
-        <select v-model="reportReason" class="toolbar-select">
-          <option value="低质内容">低质内容</option>
-          <option value="疑似违规">疑似违规</option>
-          <option value="广告营销">广告营销</option>
-        </select>
-        <button type="button" class="secondary small" @click="onReport">举报</button>
+      <div class="actions-box">
+        <div class="actions-row">
+          <span class="icon-action stat" title="浏览量">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5c5.6 0 9.8 4.1 11 6.9-1.2 2.8-5.4 7.1-11 7.1S2.2 14.7 1 11.9C2.2 9.1 6.4 5 12 5Zm0 2c-4.3 0-7.7 3-9 4.9 1.3 1.9 4.7 5.1 9 5.1s7.7-3.2 9-5.1C19.7 10 16.3 7 12 7Zm0 2.2a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6Z" />
+            </svg>
+            <span>{{ interactionStats.view_count || 0 }}</span>
+          </span>
+          <button type="button" class="icon-action" :class="{ active: hasLiked }" @click="onLike" aria-label="点赞">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 22H5a2 2 0 0 1-2-2v-7.5A2.5 2.5 0 0 1 5.5 10H9v12Zm2-12 3-7a2 2 0 0 1 3.8.63V8h2.7A2.5 2.5 0 0 1 23 10.7l-1.3 8A3 3 0 0 1 18.75 21H11V10Z"
+              />
+            </svg>
+            <span>{{ interactionStats.like_count || 0 }}</span>
+          </button>
+          <button
+            type="button"
+            class="icon-action"
+            :class="{ active: hasFavorited }"
+            @click="onFavorite"
+            aria-label="收藏"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m12 18.3-6.18 3.7 1.64-7.03L2 10.24l7.19-.62L12 3l2.81 6.62 7.19.62-5.46 4.73L18.18 22z" />
+            </svg>
+            <span>{{ interactionStats.favorite_count || 0 }}</span>
+          </button>
+          <button type="button" class="icon-action" @click="toggleSharePanel" aria-label="转发">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 3v4.2c-6 1-8.8 4.5-10 9.8 2.4-3.1 5.2-4.5 10-4.8V17l8-7-8-7Z" />
+            </svg>
+            <span>{{ interactionStats.share_count || 0 }}</span>
+          </button>
+          <select v-model="reportReason" class="toolbar-select report-select">
+            <option value="低质内容">低质内容</option>
+            <option value="疑似违规">疑似违规</option>
+            <option value="广告营销">广告营销</option>
+          </select>
+          <button type="button" class="icon-action danger" @click="onReport" aria-label="举报">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 2h2v20H4V2Zm4 2h10l-2 4 2 4H8V4Z" />
+            </svg>
+            <span>举报</span>
+          </button>
+        </div>
+        <div v-if="sharePanelOpen" class="share-panel">
+          <button
+            v-for="opt in shareOptions"
+            :key="opt.value"
+            type="button"
+            class="share-item"
+            :class="{ active: shareChannel === opt.value }"
+            @click="shareChannel = opt.value"
+          >
+            <i>{{ opt.icon }}</i>
+            <span>{{ opt.label }}</span>
+          </button>
+          <button type="button" class="secondary small" @click="onShare">确认转发</button>
+        </div>
       </div>
       <p v-if="interactionMsg" class="meta">{{ interactionMsg }}</p>
       <div class="prose" v-html="html"></div>
@@ -559,7 +635,7 @@ watch(slug, loadPost);
           <CommentItem v-for="node in tree" :key="node.id" :node="node" @reply="startReply" />
         </ul>
         <p v-if="!cLoading && !comments.length" class="meta empty-hint">
-          暂无评论，在上方表单留言即可（新评论需审核通过后显示）。
+          暂无评论，在上方表单留言即可。
         </p>
       </section>
     </article>
@@ -682,10 +758,78 @@ button.emoji-btn:hover {
   line-height: 1.5;
 }
 .actions-row {
-  margin: 0.8rem 0 1rem;
+  margin: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+.actions-box {
+  margin: 0.8rem 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+.icon-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+}
+.icon-action svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+.icon-action.active {
+  color: var(--accent-hover);
+  border-color: var(--accent);
+}
+.icon-action.danger {
+  color: var(--danger);
+}
+.icon-action.stat {
+  cursor: default;
+}
+.report-select {
+  min-width: 120px;
+}
+.share-panel {
+  margin-top: 0.55rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.share-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  background: var(--surface);
+  color: var(--text);
+}
+.share-item i {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-style: normal;
+  font-size: 11px;
+  border: 1px solid var(--border);
+}
+.share-item.active {
+  border-color: var(--accent);
+  color: var(--accent-hover);
 }
 </style>

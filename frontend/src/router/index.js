@@ -12,6 +12,7 @@ import AdminComments from "../views/admin/AdminComments.vue";
 import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminWorkflow from "../views/admin/AdminWorkflow.vue";
 import AdminPermissions from "../views/admin/AdminPermissions.vue";
+import AdminHome from "../views/admin/AdminHome.vue";
 import { authMe } from "../api";
 
 const router = createRouter({
@@ -31,35 +32,41 @@ const router = createRouter({
       component: AdminLayout,
       meta: { requiresAuth: true, adminLayout: true },
       children: [
-        { path: "", redirect: "/admin/posts" },
+        { path: "", redirect: "/admin/home" },
+        {
+          path: "home",
+          name: "admin-home",
+          meta: { adminTitle: "后台首页" },
+          component: AdminHome,
+        },
         {
           path: "posts",
           name: "admin-posts",
-          meta: { adminTitle: "文章管理" },
+          meta: { adminTitle: "文章管理", requiredMenu: "/admin/posts" },
           component: AdminPostsPage,
         },
         {
           path: "categories",
           name: "admin-categories",
-          meta: { adminTitle: "分类管理" },
+          meta: { adminTitle: "分类管理", requiredMenu: "/admin/categories" },
           component: AdminCategories,
         },
         {
           path: "tags",
           name: "admin-tags",
-          meta: { adminTitle: "标签管理" },
+          meta: { adminTitle: "标签管理", requiredMenu: "/admin/tags" },
           component: AdminTags,
         },
         {
           path: "users",
           name: "admin-users",
-          meta: { adminTitle: "用户管理" },
+          meta: { adminTitle: "用户管理", requiredMenu: "/admin/users" },
           component: AdminUsers,
         },
         {
           path: "comments",
           name: "admin-comments",
-          meta: { adminTitle: "评论管理" },
+          meta: { adminTitle: "评论管理", requiredMenu: "/admin/comments" },
           component: AdminComments,
         },
         {
@@ -95,8 +102,9 @@ router.beforeEach(async (to) => {
       const { data } = await authMe();
       localStorage.setItem("blog_profile", JSON.stringify(data || {}));
       const required = to.meta?.requiredMenu;
-      if (required && Array.isArray(data?.menus) && data.menus.length > 0 && !data.menus.includes(required)) {
-        return { name: "admin-posts" };
+      const menus = Array.isArray(data?.menus) ? data.menus : [];
+      if (required && !menus.includes(required)) {
+        return { name: "admin-home" };
       }
     } catch {
       localStorage.removeItem("blog_token");

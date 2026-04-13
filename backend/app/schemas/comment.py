@@ -84,9 +84,13 @@ class CommentAdminOut(BaseModel):
     post_id: int
     post_title: str
     parent_id: int | None
+    level: int = 0
+    parent_author_name: str | None = None
     author_name: str
     content: str
     status: str = "approved"
+    reject_type: str | None = None
+    reject_reason: str | None = None
     created_at: datetime
 
     @field_serializer("created_at", when_used="json")
@@ -117,6 +121,8 @@ class CommentAdminUpdate(BaseModel):
     content: str | None = None
     content_b64: str | None = None
     status: CommentStatus | None = None
+    reject_type: str | None = Field(None, max_length=32)
+    reject_reason: str | None = Field(None, max_length=300)
 
     @model_validator(mode="after")
     def _resolve_content_admin_update(self):

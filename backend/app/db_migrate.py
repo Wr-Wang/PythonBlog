@@ -236,6 +236,34 @@ def ensure_comment_status_column(engine: Engine) -> None:
         )
 
 
+def ensure_comment_reject_columns(engine: Engine) -> None:
+    """为 comments 增加 reject_type / reject_reason（拒绝原因信息）。"""
+    if engine.dialect.name != "mssql":
+        return
+    insp = inspect(engine)
+    try:
+        table_names = {t.lower() for t in insp.get_table_names(schema="dbo")}
+    except TypeError:
+        table_names = {t.lower() for t in insp.get_table_names()}
+    if "comments" not in table_names:
+        return
+    try:
+        columns = insp.get_columns("comments", schema="dbo")
+    except Exception:
+        columns = insp.get_columns("comments")
+    col_names = {c["name"].lower() for c in columns}
+    stmts: list[str] = []
+    if "reject_type" not in col_names:
+        stmts.append("ALTER TABLE dbo.comments ADD reject_type NVARCHAR(32) NULL")
+    if "reject_reason" not in col_names:
+        stmts.append("ALTER TABLE dbo.comments ADD reject_reason NVARCHAR(300) NULL")
+    if not stmts:
+        return
+    with engine.begin() as conn:
+        for sql in stmts:
+            conn.execute(text(sql))
+
+
 def ensure_posts_extra_columns(engine: Engine) -> None:
     """为旧版 posts 表补充 category_id、cover_image_url（若缺失）。"""
     insp = inspect(engine)

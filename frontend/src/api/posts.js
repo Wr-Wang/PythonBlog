@@ -39,7 +39,15 @@ export function favoritePost(postId, user_key) {
 }
 
 export function unfavoritePost(postId, user_key) {
-  return client.delete(`/posts/${postId}/favorite`, { params: { user_key } });
+  return client
+    .post(`/posts/${postId}/unfavorite`, { user_key })
+    .catch((e) => {
+      const code = Number(e?.response?.status || 0);
+      if (code === 404 || code === 405) {
+        return client.delete(`/posts/${postId}/favorite`, { params: { user_key }, data: { user_key } });
+      }
+      throw e;
+    });
 }
 
 export function likePost(postId, user_key) {
@@ -47,7 +55,15 @@ export function likePost(postId, user_key) {
 }
 
 export function unlikePost(postId, user_key) {
-  return client.delete(`/posts/${postId}/like`, { params: { user_key } });
+  return client
+    .post(`/posts/${postId}/unlike`, { user_key })
+    .catch((e) => {
+      const code = Number(e?.response?.status || 0);
+      if (code === 404 || code === 405) {
+        return client.delete(`/posts/${postId}/like`, { params: { user_key }, data: { user_key } });
+      }
+      throw e;
+    });
 }
 
 export function sharePost(postId, channel = "link", user_key = null) {

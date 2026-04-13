@@ -4,6 +4,10 @@ export function getDashboardSummary() {
   return client.get("/admin/ops/dashboard");
 }
 
+export function getDashboardVisual(params = {}) {
+  return client.get("/admin/ops/dashboard/visual", { params });
+}
+
 export function transitionPost(postId, to_status) {
   return client.post(`/admin/ops/posts/${postId}/transition`, null, {
     params: { to_status },
@@ -39,6 +43,16 @@ export function addSensitiveWord(word) {
 
 export function addBlacklistWord(word) {
   return client.post("/admin/ops/moderation/blacklist", null, { params: { word } });
+}
+
+export function listSensitiveGroups() {
+  return client.get("/admin/ops/moderation/sensitive-groups");
+}
+
+export function toggleSensitiveGroup(groupCode, enabled) {
+  return client.post(`/admin/ops/moderation/sensitive-groups/${encodeURIComponent(groupCode)}`, null, {
+    params: { enabled },
+  });
 }
 
 export function getSearchOps() {

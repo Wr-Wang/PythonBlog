@@ -11,4 +11,5 @@ export * from "./ops.js";
 export * from "./tags.js";
 export * from "./upload.js";
 export * from "./users.js";
+export * from "./workflow.js";
 export { default as client } from "./http.js";

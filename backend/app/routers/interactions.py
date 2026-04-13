@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -60,13 +60,37 @@ def favorite_post(
 @router.delete("/{post_id}/favorite")
 def unfavorite_post(
     post_id: int,
-    user_key: str = Query(..., min_length=1, max_length=128),
+    user_key: str | None = Query(None, min_length=1, max_length=128),
+    body: PostActionBody | None = Body(default=None),
     db: Annotated[Session, Depends(get_db)] = None,
+):
+    post = _must_post(db, post_id)
+    key = (user_key or (body.user_key if body else "")).strip()
+    if not key:
+        raise HTTPException(status_code=422, detail="缺少 user_key")
+    row = (
+        db.query(PostFavorite)
+        .filter(PostFavorite.post_id == post_id, PostFavorite.user_key == key)
+        .first()
+    )
+    if row is not None:
+        db.delete(row)
+        post.favorite_count = max(0, (post.favorite_count or 0) - 1)
+        _recalc_hot(post)
+        db.commit()
+    return {"ok": True, "favorite_count": post.favorite_count}
+
+
+@router.post("/{post_id}/unfavorite")
+def unfavorite_post_via_post(
+    post_id: int,
+    body: PostActionBody,
+    db: Annotated[Session, Depends(get_db)],
 ):
     post = _must_post(db, post_id)
     row = (
         db.query(PostFavorite)
-        .filter(PostFavorite.post_id == post_id, PostFavorite.user_key == user_key)
+        .filter(PostFavorite.post_id == post_id, PostFavorite.user_key == body.user_key)
         .first()
     )
     if row is not None:
@@ -96,11 +120,31 @@ def like_post(
 @router.delete("/{post_id}/like")
 def unlike_post(
     post_id: int,
-    user_key: str = Query(..., min_length=1, max_length=128),
+    user_key: str | None = Query(None, min_length=1, max_length=128),
+    body: PostActionBody | None = Body(default=None),
     db: Annotated[Session, Depends(get_db)] = None,
 ):
     post = _must_post(db, post_id)
-    row = db.query(PostLike).filter(PostLike.post_id == post_id, PostLike.user_key == user_key).first()
+    key = (user_key or (body.user_key if body else "")).strip()
+    if not key:
+        raise HTTPException(status_code=422, detail="缺少 user_key")
+    row = db.query(PostLike).filter(PostLike.post_id == post_id, PostLike.user_key == key).first()
+    if row is not None:
+        db.delete(row)
+        post.like_count = max(0, (post.like_count or 0) - 1)
+        _recalc_hot(post)
+        db.commit()
+    return {"ok": True, "like_count": post.like_count}
+
+
+@router.post("/{post_id}/unlike")
+def unlike_post_via_post(
+    post_id: int,
+    body: PostActionBody,
+    db: Annotated[Session, Depends(get_db)],
+):
+    post = _must_post(db, post_id)
+    row = db.query(PostLike).filter(PostLike.post_id == post_id, PostLike.user_key == body.user_key).first()
     if row is not None:
         db.delete(row)
         post.like_count = max(0, (post.like_count or 0) - 1)

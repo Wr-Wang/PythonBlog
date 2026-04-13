@@ -27,6 +27,8 @@ class Comment(Base):
     content: Mapped[str] = mapped_column(NVARCHAR(None), nullable=False)
     # pending=待审核；approved=前台可见；rejected=拒绝（MOD-01）
     status: Mapped[str] = mapped_column(NVARCHAR(20), nullable=False, default="approved")
+    reject_type: Mapped[str | None] = mapped_column(NVARCHAR(32), nullable=True)
+    reject_reason: Mapped[str | None] = mapped_column(NVARCHAR(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now_shanghai_naive)
 
     post: Mapped["Post"] = relationship("Post", back_populates="comments")

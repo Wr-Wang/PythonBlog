@@ -23,8 +23,8 @@ async function submit() {
   try {
     const { data } = await login(username.value, password.value);
     localStorage.setItem("blog_token", data.access_token);
-    const redirect = route.query.redirect || "/admin/posts";
-    await router.replace(typeof redirect === "string" ? redirect : "/admin/posts");
+    const redirect = route.query.redirect || "/admin/home";
+    await router.replace(typeof redirect === "string" ? redirect : "/admin/home");
   } catch (e) {
     err.value = e.response?.data?.detail || e.message || "登录失败";
   } finally {
