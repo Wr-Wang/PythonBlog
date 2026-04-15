@@ -1,6 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { ref } from "vue";
 import AdminPaginationBar from "../../components/AdminPaginationBar.vue";
 import BaseModal from "../../components/BaseModal.vue";
 import ConfirmDialog from "../../components/ConfirmDialog.vue";
@@ -13,16 +12,10 @@ import {
   listRoles,
   updateUserAdmin,
 } from "../../api";
+import { useAdminListPage } from "../../composables/useAdminListPage";
 import { hasPermission } from "../../utils/permissions";
 
-const router = useRouter();
-const rows = ref([]);
-const total = ref(0);
-const page = ref(1);
-const pageSize = ref(20);
-const loading = ref(true);
-const err = ref("");
-
+// 用户新增/编辑弹窗状态。
 const formOpen = ref(false);
 const formTitle = ref("");
 const editingId = ref(null);
@@ -32,83 +25,56 @@ const fActive = ref(true);
 const formErr = ref("");
 const saving = ref(false);
 
+// 删除确认弹窗状态。
 const delOpen = ref(false);
 const delRow = ref(null);
 const delMsg = ref("");
+// 角色绑定弹窗状态。
 const bindOpen = ref(false);
 const bindUser = ref(null);
 const allRoles = ref([]);
 const bindRoleIds = ref([]);
 const bindSaving = ref(false);
 const bindErr = ref("");
+// 页面级权限开关（决定按钮可见性与动作可用性）。
 const canViewUsers = hasPermission("admin.users.view");
 const canCreateUser = hasPermission("admin.users.create");
 const canEditUser = hasPermission("admin.users.update");
 const canDeleteUser = hasPermission("admin.users.delete");
 const canBindRoles = hasPermission("admin.users.bind_roles");
 
+// 注意：useAdminListPage 初始化会立即执行 load，需先初始化权限常量。
+const { rows, total, page, pageSize, loading, err, load, setPage, onPageSizeChange } = useAdminListPage({
+  listFn: async (params) => {
+    // 无查看权限时返回空列表，避免额外请求与报错噪音。
+    if (!canViewUsers) return { data: { items: [], total: 0 } };
+    return listUsersAdmin(params);
+  },
+  redirectPath: "/admin/users",
+});
+
 function toNum(v) {
+  /** 统一 ID 比较类型，避免字符串/数字混用导致勾选状态异常。 */
   const n = Number(v);
   return Number.isFinite(n) ? n : v;
 }
 
 function hasRoleId(id) {
+  /** 判断某角色是否已被当前“绑定角色”弹窗选中。 */
   const t = toNum(id);
   return bindRoleIds.value.some((x) => toNum(x) === t);
 }
 
-async function load() {
-  loading.value = true;
-  err.value = "";
-  if (!canViewUsers) {
-    loading.value = false;
-    err.value = "缺少权限: admin.users.view";
-    return;
-  }
-  try {
-    let p = page.value;
-    const skip = (p - 1) * pageSize.value;
-    let { data } = await listUsersAdmin({ skip, limit: pageSize.value });
-    const maxP = Math.max(1, Math.ceil(data.total / pageSize.value) || 1);
-    if (p > maxP && data.total >= 0) {
-      page.value = maxP;
-      p = maxP;
-      ({ data } = await listUsersAdmin({
-        skip: (p - 1) * pageSize.value,
-        limit: pageSize.value,
-      }));
-    }
-    rows.value = data.items ?? data;
-    total.value = data.total ?? 0;
-  } catch (e) {
-    err.value = e.response?.data?.detail || e.message || "加载失败";
-    if (e.response?.status === 401) {
-      localStorage.removeItem("blog_token");
-      router.push({ name: "admin-login", query: { redirect: "/admin/users" } });
-    }
-  } finally {
-    loading.value = false;
-  }
-}
-
 async function loadRolesMeta() {
+  /** 拉取角色元数据供绑定弹窗展示。 */
   const { data } = await listRoles({ skip: 0, limit: 500 });
   allRoles.value = data.items || [];
 }
 
-watch(page, load, { immediate: true });
-
-function setPage(v) {
-  page.value = v;
-}
-
-function onPageSizeChange(newSize) {
-  pageSize.value = newSize;
-  if (page.value !== 1) page.value = 1;
-  else load();
-}
+if (!canViewUsers) err.value = "缺少权限: admin.users.view";
 
 function openCreate() {
+  /** 打开新增用户弹窗并重置表单。 */
   editingId.value = null;
   formTitle.value = "新增用户";
   fUsername.value = "";
@@ -119,6 +85,7 @@ function openCreate() {
 }
 
 function openEdit(r) {
+  /** 打开编辑用户弹窗（密码默认留空代表不改）。 */
   editingId.value = r.id;
   formTitle.value = "编辑用户";
   fUsername.value = r.username;
@@ -129,6 +96,7 @@ function openEdit(r) {
 }
 
 async function save() {
+  /** 保存新增/编辑用户。 */
   formErr.value = "";
   const username = fUsername.value.trim();
   if (!username) {
@@ -138,6 +106,7 @@ async function save() {
   saving.value = true;
   try {
     if (editingId.value == null) {
+      // 新建用户强制校验最小密码长度。
       const password = fPassword.value;
       if (!password || password.length < 6) {
         formErr.value = "新建用户密码至少 6 位";
@@ -146,6 +115,7 @@ async function save() {
       }
       await createUserAdmin({ username, password, is_active: fActive.value });
     } else {
+      // 编辑时仅在输入新密码时才下发 password 字段。
       const body = { username, is_active: fActive.value };
       if (fPassword.value.trim()) {
         body.password = fPassword.value;
@@ -162,12 +132,14 @@ async function save() {
 }
 
 function askDel(r) {
+  /** 打开删除确认弹窗。 */
   delRow.value = r;
   delMsg.value = `确定删除用户「${r.username}」（id=${r.id}）？`;
   delOpen.value = true;
 }
 
 async function openBindRoles(r) {
+  /** 打开绑定角色弹窗并加载当前绑定结果。 */
   bindErr.value = "";
   bindUser.value = r;
   bindOpen.value = true;
@@ -181,6 +153,7 @@ async function openBindRoles(r) {
 }
 
 function toggleBindRole(roleId) {
+  /** 切换某角色在“待保存绑定集”中的状态。 */
   const target = toNum(roleId);
   if (hasRoleId(target)) {
     bindRoleIds.value = bindRoleIds.value.filter((x) => toNum(x) !== target);
@@ -190,6 +163,7 @@ function toggleBindRole(roleId) {
 }
 
 async function saveBindRoles() {
+  /** 提交角色绑定关系。 */
   if (!bindUser.value) return;
   bindSaving.value = true;
   bindErr.value = "";
@@ -204,6 +178,7 @@ async function saveBindRoles() {
 }
 
 async function confirmDel() {
+  /** 确认删除用户并刷新列表。 */
   if (!delRow.value) return;
   try {
     await deleteUserAdmin(delRow.value.id);
@@ -224,6 +199,7 @@ async function confirmDel() {
       </div>
     </div>
     <div class="admin-pagination-wrap">
+      <!-- 列表分页：仅在有数据且无错误时展示。 -->
       <AdminPaginationBar
         v-if="!loading && !err && total > 0"
         :total="total"
@@ -257,6 +233,7 @@ async function confirmDel() {
             <td>{{ r.is_active }}</td>
             <td class="admin-mono">{{ r.created_at }}</td>
             <td class="admin-ops">
+              <!-- 操作按钮按权限组合展示，避免越权入口暴露。 -->
               <a v-if="canEditUser" href="#" class="op-link" @click.prevent="openEdit(r)">编辑</a>
               <span v-if="canEditUser && (canBindRoles || canDeleteUser)" class="op-sep"> | </span>
               <a v-if="canBindRoles" href="#" class="op-link" @click.prevent="openBindRoles(r)">绑定角色</a>
@@ -270,6 +247,7 @@ async function confirmDel() {
     </div>
 
     <BaseModal :open="formOpen" :title="formTitle" @close="formOpen = false">
+      <!-- 新增/编辑共用同一表单；编辑时密码留空表示不修改。 -->
       <label>用户名 <input v-model="fUsername" autocomplete="off" /></label>
       <label style="margin-top: 0.75rem">
         密码
@@ -288,6 +266,7 @@ async function confirmDel() {
 
     <ConfirmDialog :open="delOpen" title="删除用户" :message="delMsg" @close="delOpen = false" @confirm="confirmDel" />
     <BaseModal :open="bindOpen" title="给用户绑定角色" @close="bindOpen = false">
+      <!-- 角色勾选集合本地维护，点击“保存角色绑定”统一提交。 -->
       <p class="meta" v-if="bindUser">当前用户：{{ bindUser.username }}</p>
       <p v-if="bindErr" class="error">{{ bindErr }}</p>
       <ul class="role-list">

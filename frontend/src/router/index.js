@@ -2,10 +2,15 @@ import { createRouter, createWebHistory } from "vue-router";
 import HomeView from "../views/HomeView.vue";
 import PostView from "../views/PostView.vue";
 import SearchView from "../views/SearchView.vue";
+import ColumnsView from "../views/ColumnsView.vue";
+import ColumnDetailView from "../views/ColumnDetailView.vue";
+import HotView from "../views/HotView.vue";
+import DiscoverView from "../views/DiscoverView.vue";
 import AdminLogin from "../views/AdminLogin.vue";
 import AdminLayout from "../views/admin/AdminLayout.vue";
 import AdminPostsPage from "../views/admin/AdminPostsPage.vue";
 import AdminCategories from "../views/admin/AdminCategories.vue";
+import AdminColumns from "../views/admin/AdminColumns.vue";
 import AdminTags from "../views/admin/AdminTags.vue";
 import AdminUsers from "../views/admin/AdminUsers.vue";
 import AdminComments from "../views/admin/AdminComments.vue";
@@ -13,13 +18,17 @@ import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminWorkflow from "../views/admin/AdminWorkflow.vue";
 import AdminPermissions from "../views/admin/AdminPermissions.vue";
 import AdminHome from "../views/admin/AdminHome.vue";
-import { authMe } from "../api";
+import { clearSessionProfile, getOrFetchProfile } from "../utils/authSession";
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", name: "home", component: HomeView },
     { path: "/search", name: "search", component: SearchView },
+    { path: "/columns", name: "columns", component: ColumnsView },
+    { path: "/column/:slug", name: "column-detail", component: ColumnDetailView, props: true },
+    { path: "/hot", name: "hot", component: HotView },
+    { path: "/discover", name: "discover", component: DiscoverView },
     { path: "/post/:slug", name: "post", component: PostView, props: true },
     {
       path: "/admin/login",
@@ -44,6 +53,12 @@ const router = createRouter({
           name: "admin-posts",
           meta: { adminTitle: "文章管理", requiredMenu: "/admin/posts" },
           component: AdminPostsPage,
+        },
+        {
+          path: "columns",
+          name: "admin-columns",
+          meta: { adminTitle: "专栏管理", requiredMenu: "/admin/columns" },
+          component: AdminColumns,
         },
         {
           path: "categories",
@@ -93,22 +108,25 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
+  // 1) 后台受保护路由：无 token 直接跳登录。
   const token = localStorage.getItem("blog_token");
   if (to.meta.requiresAuth && !token) {
     return { name: "admin-login", query: { redirect: to.fullPath } };
   }
   if (to.path.startsWith("/admin") && to.name !== "admin-login") {
     try {
-      const { data } = await authMe();
-      localStorage.setItem("blog_profile", JSON.stringify(data || {}));
+      // 走统一会话缓存层，避免守卫与布局页重复请求 /auth/me。
+      const data = await getOrFetchProfile();
       const required = to.meta?.requiredMenu;
       const menus = Array.isArray(data?.menus) ? data.menus : [];
+      // 2) 菜单级权限校验：无菜单授权则回后台首页。
       if (required && !menus.includes(required)) {
         return { name: "admin-home" };
       }
     } catch {
+      // 3) 会话失效：清理本地状态并带原因跳登录。
       localStorage.removeItem("blog_token");
-      localStorage.removeItem("blog_profile");
+      clearSessionProfile();
       return { name: "admin-login", query: { reason: "session_expired", redirect: to.fullPath } };
     }
   }

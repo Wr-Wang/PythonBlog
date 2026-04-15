@@ -61,3 +61,10 @@ class Post(Base):
     comments: Mapped[list[Comment]] = relationship(
         "Comment", back_populates="post", cascade="all, delete-orphan"
     )
+    column_links: Mapped[list["ColumnPost"]] = relationship(
+        "ColumnPost", back_populates="post", cascade="all, delete-orphan"
+    )
+
+    @property
+    def author_name(self) -> str | None:
+        return self.author.username if self.author is not None else None

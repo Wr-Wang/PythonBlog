@@ -36,6 +36,7 @@ export const COMMENT_EMOJIS = [
  * @param {string} ch
  */
 export function insertEmojiAtCursor(textareaId, textRef, ch) {
+  // 优先按光标位置插入；找不到 textarea 时退化为尾部追加。
   const ta = document.getElementById(textareaId);
   if (!ta) {
     textRef.value += ch;
@@ -47,6 +48,7 @@ export function insertEmojiAtCursor(textareaId, textRef, ch) {
   const after = textRef.value.slice(end);
   textRef.value = before + ch + after;
   nextTick(() => {
+    // 下一帧再恢复焦点与光标，避免与 v-model 更新时序冲突。
     ta.focus();
     const pos = start + ch.length;
     try {

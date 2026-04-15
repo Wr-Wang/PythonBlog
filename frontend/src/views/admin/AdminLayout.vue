@@ -1,13 +1,16 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { authLogout, authMe } from "../../api";
+import { authLogout } from "../../api";
 import { getTheme, setTheme } from "../../theme.js";
+import { clearSessionProfile, getCachedProfile, getOrFetchProfile } from "../../utils/authSession";
 
 const route = useRoute();
 const router = useRouter();
 
+// 顶部标题与外观状态。
 const pageTitle = computed(() => {
+  // 从最深层路由向上回溯，优先使用子页面 adminTitle。
   for (let i = route.matched.length - 1; i >= 0; i--) {
     const t = route.matched[i].meta?.adminTitle;
     if (t) return t;
@@ -19,38 +22,31 @@ const themePref = ref(getTheme());
 const userMenuOpen = ref(false);
 const profileLoading = ref(false);
 const profileLoadErr = ref("");
-const profile = ref(readProfileFromStorage());
+const profile = ref(getCachedProfile());
 
 const displayName = computed(() => profile.value?.username || "未登录用户");
 const primaryRole = computed(() => {
+  // 角色列表第一个作为主展示角色（与后台角色绑定顺序一致）。
   const roles = profile.value?.roles;
   return Array.isArray(roles) && roles.length ? roles[0] : "未分配角色";
 });
 const avatarText = computed(() => {
+  // 头像文案：用户名首字母兜底显示。
   const name = String(displayName.value || "").trim();
   return name ? name.slice(0, 1).toUpperCase() : "U";
 });
 
 function applyThemeFromUi() {
+  /** 将顶部主题选择器的值持久化到全局主题设置。 */
   setTheme(themePref.value);
 }
 
-function readProfileFromStorage() {
-  try {
-    const raw = localStorage.getItem("blog_profile");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 async function loadProfile() {
+  /** 强制刷新用户资料，用于首次加载与“重试用户信息”。 */
   profileLoading.value = true;
   profileLoadErr.value = "";
   try {
-    const { data } = await authMe();
-    profile.value = data || null;
-    localStorage.setItem("blog_profile", JSON.stringify(data || {}));
+    profile.value = await getOrFetchProfile({ force: true });
   } catch {
     profileLoadErr.value = "用户信息加载失败，请重试";
   } finally {
@@ -59,19 +55,23 @@ async function loadProfile() {
 }
 
 function toggleUserMenu() {
+  /** 切换用户下拉菜单展开状态。 */
   userMenuOpen.value = !userMenuOpen.value;
 }
 
 function closeUserMenu() {
+  /** 关闭用户下拉菜单。 */
   userMenuOpen.value = false;
 }
 
 function goProfile() {
+  /** 跳转到用户管理页（当前用作“个人信息”入口）。 */
   closeUserMenu();
   router.push("/admin/users");
 }
 
 function onDocPointerDown(event) {
+  /** 点击页面空白区域时自动收起用户菜单。 */
   const target = event?.target;
   if (!(target instanceof Element)) return;
   if (!target.closest(".top-user")) closeUserMenu();
@@ -80,6 +80,7 @@ function onDocPointerDown(event) {
 const navBase = [
   { to: "/admin/home", label: "首页", sub: "工作台总览" },
   { to: "/admin/posts", label: "文章", sub: "撰写与列表" },
+  { to: "/admin/columns", label: "专栏", sub: "专题与系列" },
   { to: "/admin/categories", label: "分类", sub: "栏目与 slug" },
   { to: "/admin/tags", label: "标签", sub: "检索用标记" },
   { to: "/admin/users", label: "用户", sub: "后台账号" },
@@ -89,38 +90,37 @@ const navBase = [
   { to: "/admin/permissions", label: "权限管理", sub: "RBAC 与审计" },
 ];
 const allowedMenus = computed(() => {
-  try {
-    const raw = localStorage.getItem("blog_profile");
-    const profile = raw ? JSON.parse(raw) : null;
-    const menus = Array.isArray(profile?.menus) ? profile.menus : [];
-    return new Set(menus);
-  } catch {
-    return new Set();
-  }
+  // 将后端返回菜单数组转 Set，便于 O(1) 判断。
+  const menus = Array.isArray(profile.value?.menus) ? profile.value.menus : [];
+  return new Set(menus);
 });
 const nav = computed(() => {
+  // 后台首页固定可见，其他菜单按授权动态显示。
   const allow = allowedMenus.value;
   return navBase.filter((x) => x.to === "/admin/home" || allow.has(x.to));
 });
 
 async function logout() {
+  /** 退出登录：尽量调用服务端登出，再清本地会话。 */
   try {
     await authLogout();
   } catch {
     /* ignore */
   }
   localStorage.removeItem("blog_token");
-  localStorage.removeItem("blog_profile");
+  clearSessionProfile();
   router.push({ name: "admin-login" });
 }
 
 onMounted(() => {
+  // 首屏若无缓存资料则主动加载，同时注册全局点击监听。
   if (!profile.value?.username) {
     loadProfile();
   }
   document.addEventListener("pointerdown", onDocPointerDown);
 });
 onUnmounted(() => {
+  // 组件销毁时移除监听，防止内存泄漏与重复绑定。
   document.removeEventListener("pointerdown", onDocPointerDown);
 });
 </script>
@@ -137,6 +137,7 @@ onUnmounted(() => {
       </div>
 
       <nav class="side-nav">
+        <!-- 侧边导航：根据 profile.menus 动态裁剪。 -->
         <router-link v-for="item in nav" :key="item.to" :to="item.to" class="nav-item">
           <span class="nav-label">{{ item.label }}</span>
           <span class="nav-sub">{{ item.sub }}</span>
@@ -168,6 +169,7 @@ onUnmounted(() => {
             <option value="dark">深色</option>
           </select>
           <div class="top-user">
+            <!-- 用户菜单：展示用户名/角色并提供快捷入口。 -->
             <button
               type="button"
               class="top-user-btn"
@@ -199,6 +201,7 @@ onUnmounted(() => {
         </div>
       </header>
       <div class="admin-content">
+        <!-- 子页面出口。 -->
         <router-view />
       </div>
     </div>

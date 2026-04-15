@@ -10,3 +10,4 @@ bcrypt>=4.1.0
 python-multipart==0.0.17
 bleach[css]>=6.1.0
 openpyxl>=3.1.5
+Pillow>=10.0.0

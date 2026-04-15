@@ -350,3 +350,30 @@ def ensure_roles_data_scope_column(engine: Engine) -> None:
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE roles ADD data_scope NVARCHAR(20) NOT NULL DEFAULT N'all'"))
 
+
+def ensure_column_posts_sort_order(engine: Engine) -> None:
+    """旧库 column_posts 仅两列主键时，补 sort_order 以支持专栏内文章顺序。"""
+    if engine.dialect.name != "mssql":
+        return
+    insp = inspect(engine)
+    try:
+        table_names = {t.lower() for t in insp.get_table_names(schema="dbo")}
+    except TypeError:
+        table_names = {t.lower() for t in insp.get_table_names()}
+    if "column_posts" not in table_names:
+        return
+    try:
+        columns = insp.get_columns("column_posts", schema="dbo")
+    except Exception:
+        columns = insp.get_columns("column_posts")
+    col_names = {c["name"].lower() for c in columns}
+    if "sort_order" in col_names:
+        return
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE dbo.column_posts ADD sort_order INT NOT NULL "
+                "CONSTRAINT DF_column_posts_sort_order DEFAULT (0)"
+            )
+        )
+

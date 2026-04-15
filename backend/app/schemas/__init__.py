@@ -9,6 +9,14 @@ from app.schemas.comment import (
     CommentCreatePublic,
     CommentPublicOut,
 )
+from app.schemas.column import (
+    ColumnAdminOut,
+    ColumnCreate,
+    ColumnPostBrief,
+    ColumnPublicDetailOut,
+    ColumnPublicListItem,
+    ColumnUpdate,
+)
 from app.schemas.interaction import (
     InteractionStatsOut,
     PostActionBody,
@@ -54,6 +62,12 @@ __all__ = [
     "CommentAdminUpdate",
     "CommentCreatePublic",
     "CommentPublicOut",
+    "ColumnAdminOut",
+    "ColumnCreate",
+    "ColumnPostBrief",
+    "ColumnPublicDetailOut",
+    "ColumnPublicListItem",
+    "ColumnUpdate",
     "InteractionStatsOut",
     "PostActionBody",
     "PostShareBody",

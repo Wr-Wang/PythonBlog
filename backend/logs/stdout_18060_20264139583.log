@@ -1,0 +1,87 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [9556]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9110 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64319:0 - "GET /columns HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64319:0 - "GET /column/backend-engineering HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64319:0 - "GET /discover HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64319:0 - "GET /api/columns?skip=0&limit=5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64319:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /assets/index-CyQUyZM7.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /assets/index-D_j_NVzM.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/social/follows/authors?user_key=g_48u5o8o9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/posts?published_only=true&skip=0&limit=120 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:63561:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /assets/index-CyQUyZM7.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /assets/index-D_j_NVzM.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/social/follows/authors?user_key=g_48u5o8o9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /api/posts?published_only=true&skip=0&limit=120 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:62319:0 - "GET /admin/posts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /assets/index-CyQUyZM7.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /assets/index-D_j_NVzM.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /api/posts/admin?skip=0&limit=20&sort_by=created_at&sort_dir=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /api/columns/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /assets/index-D_j_NVzM.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /assets/index-CyQUyZM7.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /api/social/follows/authors?user_key=g_48u5o8o9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62319:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/posts?published_only=true&skip=0&limit=120 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:62319:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/columns?skip=0&limit=60 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/posts/recommend?limit=24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/columns?skip=0&limit=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/columns?skip=0&limit=60 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/posts?published_only=true&sort=hot&skip=0&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/social/follows/authors?user_key=g_48u5o8o9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63561:0 - "GET /api/posts?published_only=true&skip=0&limit=120 HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:51617:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/categories/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/tags/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/categories/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/tags/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/users/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/posts/admin?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/comments/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/admin/ops/dashboard/visual?start_date=2026-03-31&end_date=2026-04-13 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/admin/ops/trends?start_date=2026-03-31&end_date=2026-04-13 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/admin/ops/feature-flags HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/admin/ops/moderation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58416:0 - "GET /api/admin/ops/moderation/sensitive-groups HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50071:0 - "GET /api/admin/ops/search-ops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50071:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58416:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51617:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50071:0 - "GET /api/admin/rbac/roles?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50071:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/posts/admin?skip=0&limit=20&sort_by=created_at&sort_dir=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65135:0 - "GET /api/columns/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50071:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK

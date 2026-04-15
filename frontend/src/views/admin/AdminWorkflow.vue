@@ -9,13 +9,9 @@ import {
   transitionPost,
 } from "../../api";
 import AdminPaginationBar from "../../components/AdminPaginationBar.vue";
+import { useAdminListPage } from "../../composables/useAdminListPage";
 
-const loading = ref(false);
-const err = ref("");
-const rows = ref([]);
-const total = ref(0);
-const page = ref(1);
-const size = ref(20);
+// 列表筛选与批量操作状态。
 const taskType = ref("all");
 const status = ref("all");
 const keyword = ref("");
@@ -27,10 +23,14 @@ const batchAssigneeId = ref("");
 const reasonTemplates = ref([]);
 const reasonTemplateId = ref("");
 const batchRemark = ref("");
+const batchResultHint = ref("");
+const batchFailExamples = ref("");
 const auditOpen = ref(false);
 const auditLoading = ref(false);
 const auditTaskId = ref("");
 const auditRecords = ref([]);
+// SLA 概览独立加载状态（与主列表分离）。
+const loadingSla = ref(false);
 const sla = ref({
   pending_count: 0,
   timeout_count: 0,
@@ -38,7 +38,6 @@ const sla = ref({
   avg_process_hours: 0,
 });
 
-const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / size.value)));
 const selectedCount = computed(() => selectedIds.value.length);
 const allChecked = computed(() => rows.value.length > 0 && rows.value.every((x) => selectedIds.value.includes(x.id)));
 const statusOptions = [
@@ -51,35 +50,54 @@ const statusOptions = [
   { value: "closed", label: "已处理举报" },
 ];
 
-async function load() {
-  loading.value = true;
-  err.value = "";
+/** 加载 SLA 概览，失败不阻断主列表渲染。 */
+async function loadSla(params) {
+  loadingSla.value = true;
   try {
-    const params = {
-      task_type: taskType.value,
-      status: status.value,
-      keyword: keyword.value.trim() || undefined,
-      start_date: startDate.value || undefined,
-      end_date: endDate.value || undefined,
-      page: page.value,
-      size: size.value,
-    };
-    const [{ data }, { data: slaData }] = await Promise.all([
-      listWorkflowTasks(params),
-      getWorkflowSlaSummary(params),
-    ]);
-    rows.value = data?.items || [];
-    total.value = Number(data?.total || 0);
+    const { data: slaData } = await getWorkflowSlaSummary(params);
     sla.value = { ...sla.value, ...(slaData || {}) };
-    selectedIds.value = selectedIds.value.filter((id) => rows.value.some((x) => x.id === id));
   } catch (e) {
-    err.value = e.response?.data?.detail || e.message || "加载失败";
+    // SLA 失败不阻断主列表；保留之前数值并提示错误。
+    err.value = e.response?.data?.detail || e.message || "SLA 加载失败";
   } finally {
-    loading.value = false;
+    loadingSla.value = false;
   }
 }
 
+const {
+  loading,
+  err,
+  rows,
+  total,
+  page,
+  pageSize,
+  load,
+  setPage,
+  onPageSizeChange,
+} = useAdminListPage({
+  listFn: listWorkflowTasks,
+  redirectPath: "/admin/workflow",
+  // 将页面筛选状态映射为后端查询参数。
+  buildListParams: ({ page, pageSize }) => ({
+    task_type: taskType.value,
+    status: status.value,
+    keyword: keyword.value.trim() || undefined,
+    start_date: startDate.value || undefined,
+    end_date: endDate.value || undefined,
+    page,
+    size: pageSize,
+  }),
+  extractItems: (data) => data?.items || [],
+  extractTotal: (data) => Number(data?.total || 0),
+  // 主列表每次加载后，同步刷新 SLA 与已选任务集合。
+  onLoaded: async ({ params, rows }) => {
+    selectedIds.value = selectedIds.value.filter((id) => rows.some((x) => x.id === id));
+    await loadSla(params);
+  },
+});
+
 async function loadReasonTemplates() {
+  /** 读取审核意见模板；失败时降级为空数组。 */
   try {
     const { data } = await listWorkflowReasonTemplates();
     reasonTemplates.value = Array.isArray(data) ? data : [];
@@ -89,6 +107,7 @@ async function loadReasonTemplates() {
 }
 
 async function move(post, toStatus) {
+  /** 单条快捷流转（当前仅支持 post 任务）。 */
   try {
     if (post.task_type !== "post") {
       err.value = "当前仅支持文章任务流转，评论/举报动作后续补齐";
@@ -102,6 +121,7 @@ async function move(post, toStatus) {
 }
 
 function toggleAll() {
+  /** 全选/全不选当前页任务。 */
   if (allChecked.value) {
     selectedIds.value = [];
   } else {
@@ -110,6 +130,7 @@ function toggleAll() {
 }
 
 async function doBatchAction() {
+  /** 执行批量动作，并回显失败分布与失败样本。 */
   if (!selectedIds.value.length) {
     err.value = "请先选择要操作的任务";
     return;
@@ -124,7 +145,28 @@ async function doBatchAction() {
       assignee_id: batchAction.value === "reassign" ? Number(batchAssigneeId.value || 0) || null : null,
     };
     const { data } = await batchWorkflowAction(payload);
-    err.value = data.fail_count ? `部分成功：成功 ${data.success_count}，失败 ${data.fail_count}` : "";
+    const failed = Array.isArray(data?.details) ? data.details.filter((x) => !x.ok) : [];
+    if (failed.length) {
+      // 失败分布：按后端 error_code 聚合，便于快速识别错误类型。
+      const grouped = failed.reduce((acc, item) => {
+        const code = item.error_code || "UNKNOWN";
+        acc[code] = (acc[code] || 0) + 1;
+        return acc;
+      }, {});
+      const parts = Object.entries(grouped).map(([code, count]) => `${code} x${count}`);
+      batchResultHint.value = `失败分布：${parts.join("，")}`;
+      const examples = data?.failed_examples && typeof data.failed_examples === "object" ? data.failed_examples : {};
+      // 失败样本：每类展示少量 task_id，帮助运维快速复核。
+      const exampleParts = Object.entries(examples)
+        .filter(([, ids]) => Array.isArray(ids) && ids.length > 0)
+        .map(([code, ids]) => `${code}: ${(ids || []).join("、")}`);
+      batchFailExamples.value = exampleParts.length ? `失败样本：${exampleParts.join("；")}` : "";
+      err.value = `部分成功：成功 ${data.success_count}，失败 ${data.fail_count}`;
+    } else {
+      batchResultHint.value = `批量执行成功：共 ${data.success_count} 条`;
+      batchFailExamples.value = "";
+      err.value = "";
+    }
     selectedIds.value = [];
     batchRemark.value = "";
     await load();
@@ -134,6 +176,7 @@ async function doBatchAction() {
 }
 
 async function openAudit(taskId) {
+  /** 打开并加载任务审计抽屉。 */
   auditOpen.value = true;
   auditTaskId.value = taskId;
   auditLoading.value = true;
@@ -149,11 +192,15 @@ async function openAudit(taskId) {
 }
 
 function onSearch() {
-  page.value = 1;
-  load();
+  /** 应用筛选条件；优先重置到第一页。 */
+  batchResultHint.value = "";
+  batchFailExamples.value = "";
+  if (page.value !== 1) setPage(1);
+  else load();
 }
 
 function resetFilters() {
+  /** 重置筛选到默认值并触发查询。 */
   taskType.value = "all";
   status.value = "all";
   keyword.value = "";
@@ -162,24 +209,13 @@ function resetFilters() {
   onSearch();
 }
 
-function onChangePage(next) {
-  if (next < 1 || next > totalPages.value) return;
-  page.value = next;
-  load();
-}
-
-function onPageSizeChange(nextSize) {
-  size.value = Number(nextSize || 20);
-  page.value = 1;
-  load();
-}
-
+// 初始化：模板列表与分页首屏由各自入口加载。
 loadReasonTemplates();
-load();
 </script>
 
 <template>
   <section class="admin-page">
+    <!-- SLA/KPI 顶部概览区。 -->
     <div class="kpi-grid">
       <article class="card kpi-item">
         <span>待处理任务</span>
@@ -201,6 +237,7 @@ load();
     <div class="card">
       <h2>流程中心</h2>
       <div class="admin-toolbar-actions">
+        <!-- 查询条件：任务类型/状态/关键词/时间范围。 -->
         <select v-model="taskType">
           <option value="all">全部任务</option>
           <option value="post">文章审核</option>
@@ -217,6 +254,7 @@ load();
         <button type="button" class="secondary" @click="resetFilters">重置</button>
       </div>
       <div class="admin-toolbar-actions batch-bar">
+        <!-- 批量操作区：动作、模板、备注、转派人。 -->
         <span class="meta">已选择 {{ selectedCount }} 条</span>
         <select v-model="batchAction">
           <option value="approve">批量通过</option>
@@ -232,11 +270,14 @@ load();
         <input v-if="batchAction === 'reassign'" v-model="batchAssigneeId" type="number" min="1" placeholder="转派用户ID" />
         <button type="button" class="secondary" @click="doBatchAction">执行批量操作</button>
       </div>
+      <p v-if="batchResultHint" class="meta">{{ batchResultHint }}</p>
+      <p v-if="batchFailExamples" class="meta">{{ batchFailExamples }}</p>
     </div>
     <p v-if="loading" class="meta">加载中…</p>
+    <p v-else-if="loadingSla" class="meta">SLA 加载中…</p>
     <p v-else-if="err" class="error">{{ err }}</p>
     <div v-else class="card admin-table-scroll">
-      <table class="admin-data-table">
+      <table class="admin-data-table admin-data-table-posts">
         <thead>
           <tr>
             <th>
@@ -270,6 +311,7 @@ load();
             <td>{{ p.sla_deadline?.replace("T", " ") || "-" }}</td>
             <td>{{ p.created_at?.replace("T", " ") || "-" }}</td>
             <td>
+              <!-- 仅文章任务开放快捷流转，其他任务暂保留审计入口。 -->
               <template v-if="p.task_type === 'post'">
                 <a href="#" class="op-link" @click.prevent="move(p, 'pending')">送审</a>
                 <span class="op-sep"> | </span>
@@ -298,12 +340,13 @@ load();
       <AdminPaginationBar
         :total="total"
         :page="page"
-        :page-size="size"
-        @update:page="onChangePage"
+        :page-size="pageSize"
+        @update:page="setPage"
         @page-size-change="onPageSizeChange"
       />
     </div>
     <div v-if="auditOpen" class="audit-drawer">
+      <!-- 审计抽屉：展示单任务历史动作链。 -->
       <div class="card">
         <div class="audit-head">
           <h3>任务审计：{{ auditTaskId }}</h3>

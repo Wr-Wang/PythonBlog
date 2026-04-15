@@ -1,6 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { ref } from "vue";
 import AdminPaginationBar from "../../components/AdminPaginationBar.vue";
 import BaseModal from "../../components/BaseModal.vue";
 import ConfirmDialog from "../../components/ConfirmDialog.vue";
@@ -10,14 +9,12 @@ import {
   listCategoriesAdmin,
   updateCategory,
 } from "../../api";
+import { useAdminListPage } from "../../composables/useAdminListPage";
 
-const router = useRouter();
-const rows = ref([]);
-const total = ref(0);
-const page = ref(1);
-const pageSize = ref(20);
-const loading = ref(true);
-const err = ref("");
+const { rows, total, page, pageSize, loading, err, load, setPage, onPageSizeChange } = useAdminListPage({
+  listFn: listCategoriesAdmin,
+  redirectPath: "/admin/categories",
+});
 
 const formOpen = ref(false);
 const formTitle = ref("");
@@ -30,47 +27,6 @@ const saving = ref(false);
 const delOpen = ref(false);
 const delRow = ref(null);
 const delMsg = ref("");
-
-async function load() {
-  loading.value = true;
-  err.value = "";
-  try {
-    let p = page.value;
-    const skip = (p - 1) * pageSize.value;
-    let { data } = await listCategoriesAdmin({ skip, limit: pageSize.value });
-    const maxP = Math.max(1, Math.ceil(data.total / pageSize.value) || 1);
-    if (p > maxP && data.total >= 0) {
-      page.value = maxP;
-      p = maxP;
-      ({ data } = await listCategoriesAdmin({
-        skip: (p - 1) * pageSize.value,
-        limit: pageSize.value,
-      }));
-    }
-    rows.value = data.items ?? data;
-    total.value = data.total ?? 0;
-  } catch (e) {
-    err.value = e.response?.data?.detail || e.message || "加载失败";
-    if (e.response?.status === 401) {
-      localStorage.removeItem("blog_token");
-      router.push({ name: "admin-login", query: { redirect: "/admin/categories" } });
-    }
-  } finally {
-    loading.value = false;
-  }
-}
-
-watch(page, load, { immediate: true });
-
-function setPage(v) {
-  page.value = v;
-}
-
-function onPageSizeChange(newSize) {
-  pageSize.value = newSize;
-  if (page.value !== 1) page.value = 1;
-  else load();
-}
 
 function openCreate() {
   editingId.value = null;

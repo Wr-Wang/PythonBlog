@@ -31,6 +31,7 @@ def list_categories(
     skip: int = Query(0, ge=0),
     limit: int = Query(200, ge=1, le=500),
 ):
+    """后台分类分页列表。"""
     total = db.query(Category).count()
     rows = db.query(Category).order_by(Category.id.asc()).offset(skip).limit(limit).all()
     return Page(items=rows, total=total)
@@ -42,6 +43,7 @@ def get_category(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """按 ID 获取单个分类。"""
     return get_by_id_or_404(db, Category, category_id, "分类不存在")
 
 
@@ -51,6 +53,7 @@ def create_category(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """创建分类；slug 全局唯一。"""
     ensure_unique_field(db, Category, "slug", body.slug, "slug 已存在")
     c = Category(name=body.name, slug=body.slug)
     db.add(c)
@@ -65,6 +68,7 @@ def update_category(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """更新分类；若修改 slug 需重新做唯一性校验。"""
     c = get_by_id_or_404(db, Category, category_id, "分类不存在")
     data = body.model_dump(exclude_unset=True)
     if "slug" in data and data["slug"] != c.slug:
@@ -80,6 +84,7 @@ def delete_category(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """删除分类（存在外键引用时由数据库约束兜底）。"""
     c = get_by_id_or_404(db, Category, category_id, "分类不存在")
     delete_and_commit(db, c)
     return None

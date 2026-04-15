@@ -53,6 +53,7 @@ class CommentPublicOut(BaseModel):
 
     @field_serializer("created_at", when_used="json")
     def _ser_created(self, dt: datetime) -> str:
+        """访客接口时间序列化为 ISO（上海时区）。"""
         return datetime_json_shanghai(dt)
 
 
@@ -68,6 +69,7 @@ class CommentCreatePublic(BaseModel):
 
     @model_validator(mode="after")
     def _resolve_content_public(self):
+        """访客提交内容统一走 Base64/明文合并与长度校验。"""
         self.content = _resolve_comment_content(self.content, self.content_b64, required=True)
         return self
 
@@ -95,6 +97,7 @@ class CommentAdminOut(BaseModel):
 
     @field_serializer("created_at", when_used="json")
     def _ser_created(self, dt: datetime) -> str:
+        """后台时间格式：yyyy-MM-dd HH:mm:ss.fff。"""
         return format_dt_yyyy_mm_dd_hh_mm_ss_fff(dt)
 
 
@@ -110,6 +113,7 @@ class CommentAdminCreate(BaseModel):
 
     @model_validator(mode="after")
     def _resolve_content_admin_create(self):
+        """后台新建评论时统一正文解析与校验。"""
         self.content = _resolve_comment_content(self.content, self.content_b64, required=True)
         return self
 
@@ -126,5 +130,6 @@ class CommentAdminUpdate(BaseModel):
 
     @model_validator(mode="after")
     def _resolve_content_admin_update(self):
+        """后台更新评论时正文可为空（仅改其他字段场景）。"""
         self.content = _resolve_comment_content(self.content, self.content_b64, required=False)
         return self

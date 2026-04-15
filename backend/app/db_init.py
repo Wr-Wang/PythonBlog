@@ -15,13 +15,14 @@ from app.config import settings
 from app.content_sanitize import sanitize_post_content
 from app.database import Base, SessionLocal, engine
 from app.db_migrate import (
+    ensure_column_posts_sort_order,
     ensure_comment_reject_columns,
     ensure_comment_status_column,
     ensure_comments_unicode_columns,
     ensure_posts_extra_columns,
     ensure_roles_data_scope_column,
 )
-from app.models import Category, Comment, Post, Tag, User
+from app.models import Category, ColumnModel, ColumnPost, Comment, Post, Tag, User
 from app.models.ops import BlacklistWord, FeatureFlag, SearchSynonym, SensitiveWord
 from app.models.rbac import Menu, Permission, Role, RoleMenu, RolePermission, UserRole
 from app.models.workflow import WorkflowReasonTemplate
@@ -145,6 +146,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     ensure_posts_extra_columns(engine)
     ensure_roles_data_scope_column(engine)
+    ensure_column_posts_sort_order(engine)
     ensure_comments_unicode_columns(engine)
     ensure_comment_status_column(engine)
     ensure_comment_reject_columns(engine)
@@ -216,6 +218,7 @@ def init_db() -> None:
             perm_ids.append(p.id)
         menu_defs = [
             ("admin.posts", "文章", "/admin/posts", 10),
+            ("admin.columns", "专栏", "/admin/columns", 15),
             ("admin.categories", "分类", "/admin/categories", 20),
             ("admin.tags", "标签", "/admin/tags", 30),
             ("admin.users", "用户", "/admin/users", 40),
@@ -368,7 +371,7 @@ def init_db() -> None:
             excerpt="这是第一篇示例文章。",
             content=(
                 "## 你好\n\n"
-                "这是使用 **Python (FastAPI)** + **Vue** + **SQL Server** 搭建的个人博客。\n\n"
+                "这是使用 **Python (FastAPI)** + **Vue** + **SQL Server** 搭建的博客。\n\n"
                 "登录后台即可编辑或删除本篇文章。"
             ),
             published=True,
@@ -519,6 +522,31 @@ def init_db() -> None:
 
         db.flush()
         seed_posts = db.query(Post).order_by(Post.id.asc()).all()
+        # 默认专栏种子（幂等）
+        if db.query(ColumnModel).count() == 0 and seed_posts:
+            c1 = ColumnModel(
+                name="后端工程实践",
+                slug="backend-engineering",
+                description="围绕 FastAPI、SQL Server 与部署实践的持续更新专栏。",
+                is_public=True,
+                author_id=user.id,
+            )
+            db.add(c1)
+            db.flush()
+            for i, p in enumerate(seed_posts[: min(4, len(seed_posts))]):
+                db.add(ColumnPost(column_id=c1.id, post_id=p.id, sort_order=i))
+            c2 = ColumnModel(
+                name="前端体验升级",
+                slug="frontend-experience",
+                description="聚焦 Vue 页面体验、布局与交互优化。",
+                is_public=True,
+                author_id=user.id,
+            )
+            db.add(c2)
+            db.flush()
+            slice2 = seed_posts[min(1, len(seed_posts)) : min(6, len(seed_posts))]
+            for i, p in enumerate(slice2):
+                db.add(ColumnPost(column_id=c2.id, post_id=p.id, sort_order=i))
         _ensure_demo_comments(db, seed_posts)
 
         db.commit()

@@ -87,6 +87,7 @@ class PostOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     author_id: int | None
+    author_name: str | None = None
     category_id: int | None
 
     @field_serializer("created_at", "updated_at", when_used="json")
@@ -114,6 +115,8 @@ class PostListItem(BaseModel):
     is_featured: bool
     is_pinned: bool
     created_at: datetime
+    author_id: int | None
+    author_name: str | None = None
     category_id: int | None
 
     @field_serializer("created_at", when_used="json")
@@ -163,6 +166,7 @@ class PostAdminOut(BaseModel):
 
     @field_serializer("created_at", "updated_at", when_used="json")
     def _ser_dt(self, dt: datetime) -> str:
+        """后台统一时间格式（毫秒三位）。"""
         return format_dt_yyyy_mm_dd_hh_mm_ss_fff(dt)
 
 

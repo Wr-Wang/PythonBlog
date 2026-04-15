@@ -100,3 +100,6 @@ INFO:     127.0.0.1:60756:0 - "GET /api/posts/212/interaction-stats HTTP/1.1" 20
 INFO:     127.0.0.1:60756:0 - "GET /api/comments/by-post/212 HTTP/1.1" 200 OK
 INFO:     127.0.0.1:60756:0 - "POST /api/comments/by-post/212 HTTP/1.1" 201 Created
 INFO:     127.0.0.1:60756:0 - "GET /api/comments/by-post/212 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58733:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62028:0 - "GET /api/posts?published_only=true&skip=0&limit=15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59463:0 - "POST /api/posts/212/view HTTP/1.1" 200 OK

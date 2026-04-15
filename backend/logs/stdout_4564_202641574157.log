@@ -1,0 +1,57 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [18492]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:22448 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54984:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50385:0 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57038:0 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /admin/home HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57474:0 - "GET /assets/index-Z6zcwcKz.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /assets/index-B5APiVVY.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57474:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57474:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/columns/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/categories/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/categories/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/tags/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/posts/admin?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/comments/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57474:0 - "GET /api/admin/ops/trends?start_date=2026-04-02&end_date=2026-04-15&group_by=day HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/admin/ops/dashboard/visual?start_date=2026-04-02&end_date=2026-04-15&group_by=day HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/admin/ops/feature-flags HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57474:0 - "GET /api/admin/ops/moderation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58401:0 - "GET /api/admin/ops/moderation/sensitive-groups HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/admin/ops/search-ops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58401:0 - "GET /api/admin/workflow/reason-templates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/admin/workflow/tasks?task_type=all&status=all&page=1&size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/admin/workflow/sla-summary?task_type=all&status=all&page=1&size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58401:0 - "GET /api/admin/rbac/permissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57474:0 - "GET /api/admin/rbac/menus HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/admin/rbac/roles?skip=0&limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/admin/rbac/audit-logs?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/categories/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/columns/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/social/follows/authors?user_key=g_48u5o8o9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/posts?published_only=true&skip=0&limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/posts/by-slug/wiki-seed-001 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "POST /api/posts/211/view HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/posts/211/interaction-stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/social/follows/authors?user_key=g_48u5o8o9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/comments/by-post/211 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "POST /api/social/follows/authors HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/social/follows/authors?user_key=g_48u5o8o9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57474:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/social/follows/authors?user_key=g_48u5o8o9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61900:0 - "GET /api/posts?published_only=true&skip=0&limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "POST /api/posts/211/view HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/posts?published_only=true&sort=hot&skip=0&limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63626:0 - "GET /api/admin/ops/dashboard HTTP/1.1" 200 OK

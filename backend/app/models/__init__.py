@@ -5,11 +5,13 @@ ORM 模型包：按业务拆分为独立模块，本文件统一导出。
 """
 from app.models.association import post_tags_table
 from app.models.category import Category
+from app.models.column import ColumnModel, ColumnPost
 from app.models.comment import Comment
 from app.models.interaction import PostFavorite, PostLike, PostReport, PostShare, PostViewEvent
 from app.models.ops import BlacklistWord, FeatureFlag, SearchHotword, SearchSynonym, SensitiveWord
 from app.models.post import Post
 from app.models.rbac import AuditLog, Menu, Permission, Role, RoleMenu, RolePermission, UserRole
+from app.models.social import AuthorFollow
 from app.models.tag import Tag
 from app.models.user import User
 from app.models.workflow import WorkflowAudit, WorkflowReasonTemplate
@@ -17,6 +19,8 @@ from app.models.workflow import WorkflowAudit, WorkflowReasonTemplate
 __all__ = [
     "post_tags_table",
     "Category",
+    "ColumnModel",
+    "ColumnPost",
     "Comment",
     "PostFavorite",
     "PostLike",
@@ -36,6 +40,7 @@ __all__ = [
     "RolePermission",
     "RoleMenu",
     "AuditLog",
+    "AuthorFollow",
     "Tag",
     "User",
     "WorkflowReasonTemplate",

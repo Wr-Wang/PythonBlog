@@ -44,6 +44,7 @@ _SENSITIVE_GROUPS: dict[str, dict] = {
 
 
 def _parse_date_or_default(v: str | None, fallback: date) -> date:
+    """解析 YYYY-MM-DD；为空时使用默认值。"""
     if not v:
         return fallback
     try:
@@ -53,6 +54,7 @@ def _parse_date_or_default(v: str | None, fallback: date) -> date:
 
 
 def _daterange(start: date, end: date) -> list[date]:
+    """生成闭区间日期序列，并约束最大跨度。"""
     days = (end - start).days
     if days < 0:
         raise HTTPException(status_code=400, detail="start_date 不能大于 end_date")
@@ -62,10 +64,74 @@ def _daterange(start: date, end: date) -> list[date]:
 
 
 def _rows_to_map(rows) -> dict[str, int]:
+    """将 [(date, count)] 行集映射为 {'YYYY-MM-DD': count}。"""
     out: dict[str, int] = {}
     for d, c in rows:
         out[str(d)] = int(c or 0)
     return out
+
+
+def _count_by_day(
+    db: Session,
+    dt_col,
+    id_col,
+    start: date,
+    end: date,
+    *extra_filters,
+) -> dict[str, int]:
+    """
+    通用按天聚合计数器，统一 trends 内各指标查询形态，减少重复样板代码。
+    """
+    rows = (
+        db.query(func.cast(dt_col, Date), func.count(id_col))
+        .filter(
+            dt_col >= datetime.combine(start, datetime.min.time()),
+            dt_col < datetime.combine(end + timedelta(days=1), datetime.min.time()),
+            *extra_filters,
+        )
+        .group_by(func.cast(dt_col, Date))
+        .all()
+    )
+    return _rows_to_map(rows)
+
+
+def _bucket_key(d: date, group_by: str) -> str:
+    """根据粒度(day/week/month)生成聚合桶 key。"""
+    if group_by == "week":
+        y, w, _ = d.isocalendar()
+        return f"{y}-W{w:02d}"
+    if group_by == "month":
+        return f"{d.year}-{d.month:02d}"
+    return str(d)
+
+
+def _group_points(points: list[dict], group_by: str) -> list[dict]:
+    """将日级 points 聚合到周/月粒度。"""
+    if group_by == "day":
+        return points
+    grouped: dict[str, dict] = {}
+    order: list[str] = []
+    sum_fields = [
+        "views",
+        "likes",
+        "favorites",
+        "shares",
+        "comments",
+        "reports",
+        "published_posts",
+        "created_posts",
+    ]
+    for row in points:
+        d = datetime.strptime(row["date"], "%Y-%m-%d").date()
+        key = _bucket_key(d, group_by)
+        if key not in grouped:
+            grouped[key] = {"date": key}
+            for f in sum_fields:
+                grouped[key][f] = 0
+            order.append(key)
+        for f in sum_fields:
+            grouped[key][f] += int(row.get(f, 0) or 0)
+    return [grouped[k] for k in order]
 
 
 def _build_post_filters(
@@ -75,6 +141,7 @@ def _build_post_filters(
     author_id: int | None,
     review_status: str | None,
 ):
+    """构建文章查询公共过滤条件集合。"""
     filters = [
         Post.created_at >= datetime.combine(start, datetime.min.time()),
         Post.created_at < datetime.combine(end + timedelta(days=1), datetime.min.time()),
@@ -95,6 +162,7 @@ def transition_post(
     db: Annotated[Session, Depends(get_db)] = None,
     _: Annotated[User, Depends(get_current_user)] = None,
 ):
+    """运营后台快捷流转文章状态（含权限校验）。"""
     if to_status not in _POST_STATUS:
         raise HTTPException(status_code=400, detail="无效状态")
     codes = get_user_permission_codes(db, _.id)
@@ -106,6 +174,7 @@ def transition_post(
             raise HTTPException(status_code=403, detail="缺少权限: admin.posts.offline.now")
     elif not user_has_permission(codes, "post.workflow"):
         raise HTTPException(status_code=403, detail="缺少权限: post.workflow")
+    # 流转目标文章必须存在。
     post = db.query(Post).filter(Post.id == post_id).first()
     if post is None:
         raise HTTPException(status_code=404, detail="文章不存在")
@@ -126,6 +195,7 @@ def dashboard_summary(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """看板概览：核心总量指标 + 热门文章 Top10。"""
     posts_total = db.query(func.count(Post.id)).scalar() or 0
     published_total = db.query(func.count(Post.id)).filter(Post.published == True).scalar() or 0  # noqa: E712
     pending_total = db.query(func.count(Post.id)).filter(Post.review_status == "pending").scalar() or 0
@@ -163,67 +233,23 @@ def dashboard_trends(
     category_id: int | None = Query(None, ge=1),
     author_id: int | None = Query(None, ge=1),
     review_status: str | None = Query(None, min_length=3, max_length=20),
+    group_by: str = Query("day", pattern="^(day|week|month)$"),
+    chart_type: str = Query("line", pattern="^(line|bar|stack)$"),
+    metrics: str | None = Query(None, description="逗号分隔：views,likes,comments..."),
 ):
+    """多指标趋势数据：支持筛选、粒度聚合、指标裁剪。"""
     today = now_shanghai_naive().date()
     start = _parse_date_or_default(start_date, today - timedelta(days=13))
     end = _parse_date_or_default(end_date, today)
     buckets = _daterange(start, end)
     post_filters = _build_post_filters(start, end, category_id, author_id, review_status)
 
-    views_map = _rows_to_map(
-        db.query(func.cast(PostViewEvent.created_at, Date), func.count(PostViewEvent.id))
-        .filter(
-            PostViewEvent.created_at >= datetime.combine(start, datetime.min.time()),
-            PostViewEvent.created_at < datetime.combine(end + timedelta(days=1), datetime.min.time()),
-        )
-        .group_by(func.cast(PostViewEvent.created_at, Date))
-        .all()
-    )
-    shares_map = _rows_to_map(
-        db.query(func.cast(PostShare.created_at, Date), func.count(PostShare.id))
-        .filter(
-            PostShare.created_at >= datetime.combine(start, datetime.min.time()),
-            PostShare.created_at < datetime.combine(end + timedelta(days=1), datetime.min.time()),
-        )
-        .group_by(func.cast(PostShare.created_at, Date))
-        .all()
-    )
-    likes_map = _rows_to_map(
-        db.query(func.cast(PostLike.created_at, Date), func.count(PostLike.id))
-        .filter(
-            PostLike.created_at >= datetime.combine(start, datetime.min.time()),
-            PostLike.created_at < datetime.combine(end + timedelta(days=1), datetime.min.time()),
-        )
-        .group_by(func.cast(PostLike.created_at, Date))
-        .all()
-    )
-    favorites_map = _rows_to_map(
-        db.query(func.cast(PostFavorite.created_at, Date), func.count(PostFavorite.id))
-        .filter(
-            PostFavorite.created_at >= datetime.combine(start, datetime.min.time()),
-            PostFavorite.created_at < datetime.combine(end + timedelta(days=1), datetime.min.time()),
-        )
-        .group_by(func.cast(PostFavorite.created_at, Date))
-        .all()
-    )
-    comments_map = _rows_to_map(
-        db.query(func.cast(Comment.created_at, Date), func.count(Comment.id))
-        .filter(
-            Comment.created_at >= datetime.combine(start, datetime.min.time()),
-            Comment.created_at < datetime.combine(end + timedelta(days=1), datetime.min.time()),
-        )
-        .group_by(func.cast(Comment.created_at, Date))
-        .all()
-    )
-    reports_map = _rows_to_map(
-        db.query(func.cast(PostReport.created_at, Date), func.count(PostReport.id))
-        .filter(
-            PostReport.created_at >= datetime.combine(start, datetime.min.time()),
-            PostReport.created_at < datetime.combine(end + timedelta(days=1), datetime.min.time()),
-        )
-        .group_by(func.cast(PostReport.created_at, Date))
-        .all()
-    )
+    views_map = _count_by_day(db, PostViewEvent.created_at, PostViewEvent.id, start, end)
+    shares_map = _count_by_day(db, PostShare.created_at, PostShare.id, start, end)
+    likes_map = _count_by_day(db, PostLike.created_at, PostLike.id, start, end)
+    favorites_map = _count_by_day(db, PostFavorite.created_at, PostFavorite.id, start, end)
+    comments_map = _count_by_day(db, Comment.created_at, Comment.id, start, end)
+    reports_map = _count_by_day(db, PostReport.created_at, PostReport.id, start, end)
     publishes_map = _rows_to_map(
         db.query(func.cast(Post.published_at, Date), func.count(Post.id))
         .filter(
@@ -244,6 +270,7 @@ def dashboard_trends(
         .all()
     )
 
+    # 先构造日级点位，再根据 group_by 二次聚合。
     points = []
     for d in buckets:
         k = str(d)
@@ -260,10 +287,37 @@ def dashboard_trends(
                 "created_posts": created_posts_map.get(k, 0),
             }
         )
+    points = _group_points(points, group_by)
+    all_metrics = [
+        "views",
+        "likes",
+        "favorites",
+        "shares",
+        "comments",
+        "reports",
+        "published_posts",
+        "created_posts",
+    ]
+    # 仅保留白名单指标，避免前端传入未知字段。
+    requested_metrics = [x.strip() for x in (metrics or "").split(",") if x.strip()]
+    selected_metrics = [x for x in requested_metrics if x in all_metrics] if requested_metrics else all_metrics
+    series = [{"key": m, "name": m, "values": [int(p.get(m, 0) or 0) for p in points]} for m in selected_metrics]
     return {
         "start_date": str(start),
         "end_date": str(end),
-        "filters": {"category_id": category_id, "author_id": author_id, "review_status": review_status},
+        "filters": {
+            "category_id": category_id,
+            "author_id": author_id,
+            "review_status": review_status,
+            "group_by": group_by,
+            "chart_type": chart_type,
+        },
+        "meta": {
+            "group_by": group_by,
+            "chart_type": chart_type,
+            "metrics": selected_metrics,
+        },
+        "series": series,
         "points": points,
     }
 
@@ -278,6 +332,7 @@ def dashboard_visual(
     author_id: int | None = Query(None, ge=1),
     review_status: str | None = Query(None, min_length=3, max_length=20),
 ):
+    """可视化看板数据：KPI、漏斗、分布、榜单与筛选选项。"""
     today = now_shanghai_naive().date()
     start = _parse_date_or_default(start_date, today - timedelta(days=29))
     end = _parse_date_or_default(end_date, today)
@@ -291,6 +346,7 @@ def dashboard_visual(
     comments_pending = db.query(func.count(Comment.id)).filter(Comment.status == "pending").scalar() or 0
     reports_pending = db.query(func.count(PostReport.id)).filter(PostReport.reviewed == False).scalar() or 0  # noqa: E712
 
+    # 审核状态漏斗。
     workflow_counts = (
         db.query(Post.review_status, func.count(Post.id))
         .filter(*post_filters)
@@ -299,6 +355,7 @@ def dashboard_visual(
     )
     workflow_map = {str(s or "unknown"): int(c or 0) for s, c in workflow_counts}
 
+    # 分类分布 TopN。
     category_rows = (
         db.query(Category.name, func.count(Post.id))
         .select_from(Post)
@@ -310,6 +367,7 @@ def dashboard_visual(
         .all()
     )
 
+    # 标签分布 TopN。
     tag_rows = (
         db.query(Tag.name, func.count(Post.id))
         .select_from(Post)
@@ -321,6 +379,7 @@ def dashboard_visual(
         .all()
     )
 
+    # 热榜 TopN（按 hot_score + view_count）。
     hot_rows = (
         db.query(Post.id, Post.title, Post.hot_score, Post.view_count)
         .filter(*post_filters)
@@ -329,6 +388,7 @@ def dashboard_visual(
         .all()
     )
 
+    # 举报次数子查询，用于风险文章榜单。
     report_cnt = (
         db.query(PostReport.post_id, func.count(PostReport.id).label("report_cnt"))
         .group_by(PostReport.post_id)
@@ -342,6 +402,7 @@ def dashboard_visual(
         .limit(10)
         .all()
     )
+    # 筛选器可选项：分类/作者。
     category_opts = (
         db.query(Post.category_id, Category.name)
         .select_from(Post)
@@ -405,9 +466,12 @@ def export_dashboard_trends(
     category_id: int | None = Query(None, ge=1),
     author_id: int | None = Query(None, ge=1),
     review_status: str | None = Query(None, min_length=3, max_length=20),
+    group_by: str = Query("day", pattern="^(day|week|month)$"),
 ):
+    """导出趋势数据（CSV/XLSX）。"""
     if not user_has_permission(get_user_permission_codes(db, _.id), "admin.dashboard.export"):
         raise HTTPException(status_code=403, detail="缺少权限: admin.dashboard.export")
+    # 复用趋势接口逻辑，确保导出口径与页面一致。
     data = dashboard_trends(
         db=db,
         _=_,
@@ -416,10 +480,12 @@ def export_dashboard_trends(
         category_id=category_id,
         author_id=author_id,
         review_status=review_status,
+        group_by=group_by,
     )
     points = data["points"]
     headers = ["date", "views", "likes", "favorites", "shares", "comments", "reports", "published_posts", "created_posts"]
     if format == "csv":
+        # CSV 使用 utf-8-sig，兼容 Excel 直接打开中文。
         sio = io.StringIO()
         writer = csv.DictWriter(sio, fieldnames=headers)
         writer.writeheader()
@@ -454,6 +520,7 @@ def list_feature_flags(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """查询功能开关列表。"""
     rows = db.query(FeatureFlag).order_by(FeatureFlag.id.asc()).all()
     return [
         {
@@ -475,6 +542,7 @@ def update_feature_flag(
     db: Annotated[Session, Depends(get_db)] = None,
     _: Annotated[User, Depends(get_current_user)] = None,
 ):
+    """更新单个功能开关状态与灰度比例。"""
     row = db.query(FeatureFlag).filter(FeatureFlag.id == flag_id).first()
     if row is None:
         raise HTTPException(status_code=404, detail="开关不存在")
@@ -489,6 +557,7 @@ def moderation_lists(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """查询审核词库（敏感词/黑名单）当前启用项。"""
     sensitive = [r.word for r in db.query(SensitiveWord).filter(SensitiveWord.enabled == True).all()]  # noqa: E712
     blacklist = [r.word for r in db.query(BlacklistWord).filter(BlacklistWord.enabled == True).all()]  # noqa: E712
     return {"sensitive_words": sensitive, "blacklist_words": blacklist}
@@ -500,6 +569,7 @@ def add_sensitive_word(
     db: Annotated[Session, Depends(get_db)] = None,
     _: Annotated[User, Depends(get_current_user)] = None,
 ):
+    """新增或重新启用单个敏感词。"""
     row = db.query(SensitiveWord).filter(SensitiveWord.word == word).first()
     if row is None:
         db.add(SensitiveWord(word=word, enabled=True))
@@ -514,6 +584,7 @@ def list_sensitive_groups(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """返回预置敏感词分组及启用覆盖情况。"""
     db_rows = db.query(SensitiveWord.word, SensitiveWord.enabled).all()
     enabled_map = {str(w): bool(e) for w, e in db_rows}
     out = []
@@ -540,6 +611,7 @@ def toggle_sensitive_group(
     db: Annotated[Session, Depends(get_db)] = None,
     _: Annotated[User, Depends(get_current_user)] = None,
 ):
+    """批量启用/禁用一个敏感词分组。"""
     meta = _SENSITIVE_GROUPS.get(group_code)
     if meta is None:
         raise HTTPException(status_code=404, detail="敏感词分组不存在")
@@ -560,6 +632,7 @@ def add_blacklist_word(
     db: Annotated[Session, Depends(get_db)] = None,
     _: Annotated[User, Depends(get_current_user)] = None,
 ):
+    """新增或重新启用单个黑名单词。"""
     row = db.query(BlacklistWord).filter(BlacklistWord.word == word).first()
     if row is None:
         db.add(BlacklistWord(word=word, enabled=True))
@@ -574,6 +647,7 @@ def search_ops(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """搜索运营数据：热词榜 + 同义词配置。"""
     hot = (
         db.query(SearchHotword.keyword, SearchHotword.cnt)
         .order_by(SearchHotword.cnt.desc(), SearchHotword.id.asc())
@@ -594,6 +668,7 @@ def add_synonym(
     db: Annotated[Session, Depends(get_db)] = None,
     _: Annotated[User, Depends(get_current_user)] = None,
 ):
+    """新增或重新启用同义词映射。"""
     row = db.query(SearchSynonym).filter(SearchSynonym.src == src, SearchSynonym.dst == dst).first()
     if row is None:
         db.add(SearchSynonym(src=src, dst=dst, enabled=True))

@@ -1,6 +1,5 @@
 <script setup>
 import { ref, watch } from "vue";
-import { useRouter } from "vue-router";
 import AdminPaginationBar from "../../components/AdminPaginationBar.vue";
 import BaseModal from "../../components/BaseModal.vue";
 import ConfirmDialog from "../../components/ConfirmDialog.vue";
@@ -12,19 +11,22 @@ import {
   updateCommentAdmin,
 } from "../../api";
 import { COMMENT_EMOJIS, insertEmojiAtCursor } from "../../utils/commentEmoji";
+import { useAdminListPage } from "../../composables/useAdminListPage";
 
-const router = useRouter();
-const rows = ref([]);
 const posts = ref([]);
-const total = ref(0);
-const page = ref(1);
-const pageSize = ref(20);
 const postsLoaded = ref(false);
-const loading = ref(true);
-const err = ref("");
+const { rows, total, page, pageSize, loading, err, load, setPage, onPageSizeChange } = useAdminListPage({
+  listFn: async (params) => {
+    // 评论列表依赖文章元数据（用于默认昵称/标题展示），首轮先补齐。
+    if (!postsLoaded.value) await loadPosts();
+    return listCommentsAdmin(params);
+  },
+  redirectPath: "/admin/comments",
+});
 
 const formOpen = ref(false);
 const formTitle = ref("");
+// 表单模式：create=新增主评论，edit=编辑，reply=回复某条评论。
 const mode = ref("create"); // create | edit | reply
 const editingId = ref(null);
 const fPostId = ref("");
@@ -46,51 +48,10 @@ const rejectErr = ref("");
 const rejecting = ref(false);
 
 async function loadPosts() {
+  /** 拉取文章列表，用于评论新建/回复时选择文章。 */
   const { data } = await adminListPosts({ skip: 0, limit: 500 });
   posts.value = data.items ?? data;
   postsLoaded.value = true;
-}
-
-async function load() {
-  loading.value = true;
-  err.value = "";
-  try {
-    if (!postsLoaded.value) await loadPosts();
-    let p = page.value;
-    const skip = (p - 1) * pageSize.value;
-    let { data } = await listCommentsAdmin({ skip, limit: pageSize.value });
-    const maxP = Math.max(1, Math.ceil(data.total / pageSize.value) || 1);
-    if (p > maxP && data.total >= 0) {
-      page.value = maxP;
-      p = maxP;
-      ({ data } = await listCommentsAdmin({
-        skip: (p - 1) * pageSize.value,
-        limit: pageSize.value,
-      }));
-    }
-    rows.value = data.items ?? data;
-    total.value = data.total ?? 0;
-  } catch (e) {
-    err.value = e.response?.data?.detail || e.message || "加载失败";
-    if (e.response?.status === 401) {
-      localStorage.removeItem("blog_token");
-      router.push({ name: "admin-login", query: { redirect: "/admin/comments" } });
-    }
-  } finally {
-    loading.value = false;
-  }
-}
-
-watch(page, load, { immediate: true });
-
-function setPage(v) {
-  page.value = v;
-}
-
-function onPageSizeChange(newSize) {
-  pageSize.value = newSize;
-  if (page.value !== 1) page.value = 1;
-  else load();
 }
 
 /** 默认昵称为当前所选文章的作者（博主登录名），无作者时为空。 */
@@ -102,6 +63,7 @@ function nicknameDefaultForPost(postIdStr) {
 }
 
 function openCreate() {
+  /** 打开新增评论：默认文章取首条，昵称取文章作者。 */
   mode.value = "create";
   editingId.value = null;
   formTitle.value = "新增评论";
@@ -115,6 +77,7 @@ function openCreate() {
 }
 
 function openEdit(r) {
+  /** 打开编辑评论：锁定 post_id，防止跨文章误迁移。 */
   mode.value = "edit";
   editingId.value = r.id;
   formTitle.value = "编辑评论";
@@ -128,6 +91,7 @@ function openEdit(r) {
 }
 
 function openReply(r) {
+  /** 打开回复弹窗：父评论与文章信息继承自目标评论。 */
   mode.value = "reply";
   editingId.value = null;
   formTitle.value = `回复作者：${r.author_name}`;
@@ -141,6 +105,7 @@ function openReply(r) {
 }
 
 async function save() {
+  /** 保存评论：编辑走 update，新增/回复走 create。 */
   formErr.value = "";
   const author_name = fAuthor.value.trim();
   const content = fContent.value.trim();
@@ -153,6 +118,7 @@ async function save() {
     if (mode.value === "edit") {
       await updateCommentAdmin(editingId.value, { author_name, content });
     } else {
+      // 新增/回复统一走 create；reply 时 parent_id 已预置。
       const post_id = Number(fPostId.value);
       if (!Number.isFinite(post_id)) {
         formErr.value = "请选择文章";
@@ -161,6 +127,7 @@ async function save() {
       }
       let parent_id = null;
       if (fParentId.value !== "") {
+        // parent_id 为空字符串表示主评论。
         const p = Number(fParentId.value);
         parent_id = Number.isFinite(p) ? p : null;
       }
@@ -176,23 +143,28 @@ async function save() {
 }
 
 function askDel(r) {
+  /** 打开删除评论确认框（提示级联风险）。 */
   delRow.value = r;
   delMsg.value = `确定删除评论 id=${r.id}？其回复若存在可能被一并删除（级联）。`;
   delOpen.value = true;
 }
 
 function insertEmoji(ch) {
+  /** 在内容输入框当前光标位置插入表情。 */
   insertEmojiAtCursor("ac-ct", fContent, ch);
 }
 
 watch([fPostId, formOpen, mode], () => {
+  // 仅在“新增评论”模式中根据当前文章自动回填默认昵称。
   if (!formOpen.value || mode.value !== "create") return;
   fAuthor.value = nicknameDefaultForPost(fPostId.value);
 });
 
 async function setStatus(r, status) {
+  /** 快捷审核动作：拒绝时先打开拒绝原因弹窗。 */
   try {
     if (status === "rejected") {
+      // 拒绝动作需要补充结构化原因，先打开弹窗二次确认。
       rejectRow.value = r;
       rejectType.value = "违规内容";
       rejectReason.value = "评论内容涉及违规或不当表达，未通过审核。";
@@ -203,11 +175,13 @@ async function setStatus(r, status) {
     await updateCommentAdmin(r.id, { status, reject_type: null, reject_reason: null });
     await load();
   } catch (e) {
+    // 快捷审核失败直接弹窗提示，避免误以为已生效。
     alert(e.response?.data?.detail || e.message || "更新失败");
   }
 }
 
 async function confirmReject() {
+  /** 提交拒绝审核，附带拒绝类型与原因。 */
   if (!rejectRow.value) return;
   if (!rejectType.value.trim() || !rejectReason.value.trim()) {
     rejectErr.value = "请填写拒绝类型和拒绝原因";
@@ -216,6 +190,7 @@ async function confirmReject() {
   rejecting.value = true;
   rejectErr.value = "";
   try {
+    // 拒绝时透传 reject_type/reject_reason，便于后台审计与前台回显。
     await updateCommentAdmin(rejectRow.value.id, {
       status: "rejected",
       reject_type: rejectType.value.trim(),
@@ -231,12 +206,14 @@ async function confirmReject() {
 }
 
 async function confirmDel() {
+  /** 确认删除评论并刷新列表。 */
   if (!delRow.value) return;
   try {
     await deleteCommentAdmin(delRow.value.id);
     delOpen.value = false;
     await load();
   } catch (e) {
+    // 删除失败保留弹窗状态，方便用户重试或取消。
     alert(e.response?.data?.detail || e.message || "删除失败");
   }
 }

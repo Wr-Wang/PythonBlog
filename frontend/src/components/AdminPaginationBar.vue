@@ -98,12 +98,13 @@ function onSizeChange(e) {
 }
 .admin-page-size select {
   font: inherit;
-  padding: 0.25rem 0.45rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  width: auto;
+  min-width: 4.5rem;
+  max-width: 8rem;
+  min-height: 30px;
   height: 30px;
+  padding: 0.2rem 2rem 0.2rem 0.45rem;
+  font-size: 12px;
 }
 .admin-pagination-meta {
   color: var(--muted);
@@ -140,7 +141,8 @@ function onSizeChange(e) {
   }
   .admin-page-size select {
     height: 26px;
-    padding: 0.15rem 0.35rem;
+    min-height: 26px;
+    padding: 0.12rem 1.75rem 0.12rem 0.35rem;
   }
   .admin-pagination-btns button {
     height: 28px;

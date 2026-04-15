@@ -5,13 +5,16 @@ import CommentItem from "../components/CommentItem.vue";
 import {
   createCommentPublic,
   favoritePost,
+  followAuthor,
   getPostBySlug,
   getPostInteractionStats,
   likePost,
   listCommentsByPost,
+  listFollowedAuthors,
   reportPost,
   sharePost,
   trackPostView,
+  unfollowAuthor,
   unfavoritePost,
   unlikePost,
 } from "../api";
@@ -52,6 +55,8 @@ const reportReason = ref("低质内容");
 const shareChannel = ref("link");
 const sharePanelOpen = ref(false);
 const interactionMsg = ref("");
+const followedAuthorIds = ref([]);
+const commentsSort = ref("hot");
 const shareChannelLabel = {
   link: "复制链接",
   wechat: "微信",
@@ -73,6 +78,15 @@ function userKey() {
     localStorage.setItem(k, v);
   }
   return v;
+}
+
+async function syncFollowedAuthors() {
+  try {
+    const { data } = await listFollowedAuthors(userKey());
+    followedAuthorIds.value = Array.isArray(data?.items) ? data.items.map((x) => Number(x)) : [];
+  } catch {
+    followedAuthorIds.value = [];
+  }
 }
 
 const siteBase = (
@@ -106,7 +120,7 @@ function clearJsonLd() {
 
 function applyArticleSeo(p) {
   if (!p) return;
-  document.title = `${p.title} | 个人博客`;
+  document.title = `${p.title} | 博客`;
   let metaD = document.querySelector('meta[name="description"]');
   if (!metaD) {
     metaD = document.createElement("meta");
@@ -142,7 +156,7 @@ function applyArticleSeo(p) {
     description: p.excerpt || undefined,
     datePublished: p.created_at,
     dateModified: p.updated_at,
-    author: { "@type": "Organization", name: "个人博客" },
+    author: { "@type": "Organization", name: "博客" },
     image: p.cover_image_url ? [absoluteUrl(p.cover_image_url)] : undefined,
     mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
   });
@@ -150,7 +164,7 @@ function applyArticleSeo(p) {
 }
 
 function resetSeo() {
-  document.title = "个人博客";
+  document.title = "博客";
   clearJsonLd();
 }
 
@@ -270,11 +284,34 @@ async function loadPost() {
     });
     const st = await getPostInteractionStats(data.id);
     interactionStats.value = st.data || interactionStats.value;
+    await syncFollowedAuthors();
     await loadComments(data.id);
   } catch (e) {
     err.value = e.response?.data?.detail || e.message || "加载失败";
   } finally {
     loading.value = false;
+  }
+}
+
+const isFollowingAuthor = computed(() => {
+  const aid = Number(post.value?.author_id || 0);
+  return aid > 0 && followedAuthorIds.value.includes(aid);
+});
+
+async function toggleFollowAuthor() {
+  const aid = Number(post.value?.author_id || 0);
+  if (!aid) return;
+  try {
+    if (isFollowingAuthor.value) {
+      await unfollowAuthor(userKey(), aid);
+      interactionMsg.value = "已取消关注作者";
+    } else {
+      await followAuthor(userKey(), aid);
+      interactionMsg.value = "已关注作者";
+    }
+    await syncFollowedAuthors();
+  } catch (e) {
+    interactionMsg.value = e.response?.data?.detail || e.message || "关注操作失败";
   }
 }
 
@@ -355,6 +392,24 @@ async function loadComments(postId) {
 }
 
 const html = computed(() => sanitizePostBodyHtml(post.value?.content || ""));
+const tocItems = computed(() => {
+  if (typeof window === "undefined" || !html.value) return [];
+  const doc = new window.DOMParser().parseFromString(html.value, "text/html");
+  const hs = [...doc.querySelectorAll("h1,h2,h3")];
+  return hs.map((h, idx) => ({
+    id: h.id || `sec-${idx + 1}`,
+    level: Number(h.tagName.slice(1)),
+    text: (h.textContent || "").trim() || `段落 ${idx + 1}`,
+  }));
+});
+const renderedHtml = computed(() => {
+  if (typeof window === "undefined" || !html.value) return html.value;
+  const doc = new window.DOMParser().parseFromString(html.value, "text/html");
+  [...doc.querySelectorAll("h1,h2,h3")].forEach((h, idx) => {
+    if (!h.id) h.id = `sec-${idx + 1}`;
+  });
+  return doc.body.innerHTML;
+});
 
 const readingMinutes = computed(() =>
   post.value?.content ? estimateReadingMinutes(post.value.content) : 1,
@@ -400,6 +455,23 @@ function nestComments(flat) {
 }
 
 const tree = computed(() => nestComments(comments.value));
+const displayedTree = computed(() => {
+  const roots = [...tree.value];
+  const newestSort = (a, b) => {
+    const ta = new Date(a.created_at || 0).getTime();
+    const tb = new Date(b.created_at || 0).getTime();
+    return tb - ta;
+  };
+  const hotSort = (a, b) =>
+    Number(b.children?.length || 0) - Number(a.children?.length || 0) || newestSort(a, b);
+  roots.sort(commentsSort.value === "newest" ? newestSort : hotSort);
+  return roots;
+});
+
+function jumpToToc(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 async function startReply(c) {
   replyTo.value = c;
@@ -480,7 +552,7 @@ watch(slug, loadPost);
 </script>
 
 <template>
-  <div class="container">
+  <div class="container post-layout">
     <div v-if="post" class="read-progress-track" aria-hidden="true">
       <div class="read-progress-bar" :style="{ width: progressPct + '%' }" />
     </div>
@@ -502,6 +574,12 @@ watch(slug, loadPost);
       />
       <h1>{{ post.title }}</h1>
       <p class="meta">{{ formatDate(post.created_at) }} · 约 {{ readingMinutes }} 分钟读完</p>
+      <div class="author-follow-row">
+        <span class="meta">作者：{{ post.author_name || "匿名作者" }}</span>
+        <button v-if="post.author_id" type="button" class="secondary small" @click="toggleFollowAuthor">
+          {{ isFollowingAuthor ? "已关注" : "关注作者" }}
+        </button>
+      </div>
       <div class="actions-box">
         <div class="actions-row">
           <span class="icon-action stat" title="浏览量">
@@ -564,7 +642,7 @@ watch(slug, loadPost);
         </div>
       </div>
       <p v-if="interactionMsg" class="meta">{{ interactionMsg }}</p>
-      <div class="prose" v-html="html"></div>
+      <div class="prose" v-html="renderedHtml"></div>
 
       <section class="comments card">
         <p v-if="commentSuccess" class="comment-success">{{ commentSuccess }}</p>
@@ -628,21 +706,50 @@ watch(slug, loadPost);
           </button>
         </div>
 
-        <h3 class="comments-list-title">全部评论</h3>
+        <div class="comments-head">
+          <h3 class="comments-list-title">全部评论</h3>
+          <select v-model="commentsSort" class="toolbar-select">
+            <option value="hot">最热</option>
+            <option value="newest">最新</option>
+          </select>
+        </div>
         <p v-if="cLoading" class="meta">评论加载中…</p>
         <p v-else-if="cErr" class="error">{{ cErr }}</p>
         <ul v-else class="thread">
-          <CommentItem v-for="node in tree" :key="node.id" :node="node" @reply="startReply" />
+          <CommentItem v-for="node in displayedTree" :key="node.id" :node="node" @reply="startReply" />
         </ul>
         <p v-if="!cLoading && !comments.length" class="meta empty-hint">
           暂无评论，在上方表单留言即可。
         </p>
       </section>
     </article>
+    <aside v-if="post && !loading" class="article-side card">
+      <section>
+        <h3>作者信息</h3>
+        <p class="meta">{{ post.author_name || "匿名作者" }}</p>
+        <p class="meta">发布时间：{{ formatDate(post.created_at) }}</p>
+      </section>
+      <section v-if="tocItems.length" class="article-toc">
+        <h3>目录</h3>
+        <ul>
+          <li v-for="item in tocItems" :key="item.id">
+            <button type="button" class="toc-link" :class="`lv-${item.level}`" @click="jumpToToc(item.id)">
+              {{ item.text }}
+            </button>
+          </li>
+        </ul>
+      </section>
+    </aside>
   </div>
 </template>
 
 <style scoped>
+.post-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 1rem;
+  max-width: 1180px;
+}
 .cover {
   width: 100%;
   max-height: 360px;
@@ -650,6 +757,13 @@ watch(slug, loadPost);
   border-radius: 12px;
   margin-bottom: 1rem;
   border: 1px solid var(--border);
+}
+.author-follow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.8rem;
 }
 .comment-success {
   margin: 0 0 1rem;
@@ -659,6 +773,12 @@ watch(slug, loadPost);
   background: rgba(34, 197, 94, 0.12);
   border: 1px solid rgba(34, 197, 94, 0.35);
   border-radius: 8px;
+}
+.comments-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 .comments {
   margin-top: 2rem;
@@ -831,5 +951,51 @@ button.emoji-btn:hover {
 .share-item.active {
   border-color: var(--accent);
   color: var(--accent-hover);
+}
+.article-side {
+  align-self: start;
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+}
+.article-side h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+.article-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+.toc-link {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: 0.2rem 0.3rem;
+  border-radius: 6px;
+}
+.toc-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.toc-link.lv-2 {
+  padding-left: 0.9rem;
+}
+.toc-link.lv-3 {
+  padding-left: 1.4rem;
+}
+@media (max-width: 1080px) {
+  .post-layout {
+    grid-template-columns: 1fr;
+  }
+  .article-side {
+    position: static;
+  }
 }
 </style>

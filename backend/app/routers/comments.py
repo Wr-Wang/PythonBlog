@@ -53,6 +53,39 @@ def _calc_comment_level_and_parent_author(
     return level, parent_author
 
 
+def _prefetch_comment_chain_cache(
+    db: Session,
+    cache: dict[int, tuple[int | None, str]],
+    max_depth: int = 10,
+) -> None:
+    """
+    批量补齐父链缓存，避免逐条评论按 parent_id 回表（N+1）。
+    仅预取当前页评论向上最多 max_depth 的祖先节点。
+    """
+    pending: set[int] = {
+        int(parent_id)
+        for parent_id, _ in cache.values()
+        if parent_id is not None and int(parent_id) not in cache
+    }
+    for _ in range(max_depth):
+        if not pending:
+            break
+        rows = (
+            db.query(Comment.id, Comment.parent_id, Comment.author_name)
+            .filter(Comment.id.in_(list(pending)))
+            .all()
+        )
+        pending.clear()
+        for cid, parent_id, author_name in rows:
+            cache[int(cid)] = (parent_id, author_name or "")
+        for parent_id, _ in cache.values():
+            if parent_id is None:
+                continue
+            pid = int(parent_id)
+            if pid not in cache:
+                pending.add(pid)
+
+
 @router.get("/admin", response_model=Page[CommentAdminOut])
 def list_comments_admin(
     db: Annotated[Session, Depends(get_db)],
@@ -74,6 +107,7 @@ def list_comments_admin(
     chain_cache: dict[int, tuple[int | None, str]] = {}
     for c, _ in rows:
         chain_cache[int(c.id)] = (c.parent_id, c.author_name or "")
+    _prefetch_comment_chain_cache(db, chain_cache)
     items: list[CommentAdminOut] = []
     for c, title in rows:
         level, parent_author = _calc_comment_level_and_parent_author(db, c, chain_cache)

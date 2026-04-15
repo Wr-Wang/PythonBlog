@@ -95,7 +95,7 @@ def list_posts(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):
-    q = db.query(Post)
+    q = db.query(Post).options(joinedload(Post.author))
     if published_only:
         q = q.filter(Post.published == True)  # noqa: E712
     if sort == "hot":
@@ -182,7 +182,7 @@ def list_all_posts(
 
 @router.get("/by-slug/{slug}", response_model=PostOut)
 def get_by_slug(slug: str, db: Annotated[Session, Depends(get_db)]):
-    post = db.query(Post).filter(Post.slug == slug).first()
+    post = db.query(Post).options(joinedload(Post.author)).filter(Post.slug == slug).first()
     if post is None or not post.published:
         raise HTTPException(status_code=404, detail="文章不存在")
     return post

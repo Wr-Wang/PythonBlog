@@ -9,6 +9,15 @@
   --border: #2d3a4d;
   --danger: #e57373;
   --btn-fg: #0f1419;
+  /* 表单控件统一（HUX-05） */
+  --control-radius: 10px;
+  --control-pad-y: 0.55rem;
+  --control-pad-x: 0.75rem;
+  --control-bg: var(--surface);
+  --control-border: var(--border);
+  --control-focus: color-mix(in srgb, var(--accent) 42%, transparent);
+  --control-placeholder: color-mix(in srgb, var(--muted) 85%, transparent);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%238b9cb3' d='M3.5 5.25L7 8.75l3.5-3.5'/%3E%3C/svg%3E");
   --table-header-start: #1c2636;
   --header-bar-bg: rgba(15, 20, 25, 0.65);
   --admin-aside-gradient: linear-gradient(165deg, #121922 0%, var(--surface) 48%, #151d2a 100%);
@@ -21,6 +30,7 @@
   line-height: 1.6;
   color: var(--text);
   background: var(--bg);
+  color-scheme: dark;
 }
 
 :root[data-theme="light"] {
@@ -33,11 +43,13 @@
   --border: #e2e8f0;
   --danger: #dc2626;
   --btn-fg: #ffffff;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%235c6b7a' d='M3.5 5.25L7 8.75l3.5-3.5'/%3E%3C/svg%3E");
   --table-header-start: #e8eef4;
   --header-bar-bg: rgba(255, 255, 255, 0.82);
   --admin-aside-gradient: linear-gradient(165deg, #e8eef4 0%, var(--surface) 48%, #dde4ee 100%);
   --code-bg: #f1f5f9;
   --emoji-bar-bg: rgba(0, 0, 0, 0.06);
+  color-scheme: light;
 }
 
 :root[data-font-size="sm"] {
@@ -91,18 +103,127 @@ button.danger {
   border: 1px solid var(--danger);
 }
 
-input,
-textarea {
+/* ========== 文本类输入、多行、下拉：全站统一（HUX-05） ========== */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="image"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]),
+textarea,
+select {
   font: inherit;
   width: 100%;
-  padding: 0.6rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+  max-width: 100%;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--control-radius);
+  border: 1px solid var(--control-border);
+  background: var(--control-bg);
+  color: var(--text);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"])::placeholder,
+textarea::placeholder {
+  color: var(--control-placeholder);
+  opacity: 1;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):hover,
+textarea:hover,
+select:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--control-focus);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--control-bg) 92%, var(--muted));
+}
+
+/* 下拉：自定义箭头，避免各浏览器默认样式不一致 */
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  padding-right: 2.25rem;
+}
+
+select option {
   background: var(--surface);
   color: var(--text);
 }
 
-/* 复选框/单选框不参与「全宽输入框」规则，否则在后台表单中会横向撑满、布局错乱 */
+select[multiple] {
+  background-image: none;
+  padding-right: var(--control-pad-x);
+  min-height: 8rem;
+  line-height: 1.45;
+}
+
+/* 分页条内联下拉：避免被全局 width:100% 撑满整行 */
+.admin-pagination .admin-page-size select {
+  width: auto;
+  min-width: 4.5rem;
+  max-width: 8rem;
+}
+
+/* 原生文件选择：与主题协调 */
+input[type="file"] {
+  font: inherit;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--control-radius);
+  border: 1px dashed var(--control-border);
+  background: color-mix(in srgb, var(--control-bg) 92%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="file"]:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  border-style: solid;
+  box-shadow: 0 0 0 3px var(--control-focus);
+}
+
+input[type="file"]::file-selector-button {
+  font: inherit;
+  margin-right: 0.65rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+input[type="file"]::file-selector-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+input[type="range"] {
+  width: 100%;
+  max-width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 复选框/单选框：不撑满整行 */
 input[type="checkbox"],
 input[type="radio"] {
   width: auto;
@@ -118,8 +239,9 @@ input[type="radio"] {
 }
 
 textarea {
-  min-height: 200px;
+  min-height: 3.5rem;
   resize: vertical;
+  line-height: 1.5;
 }
 
 .container {
@@ -154,15 +276,14 @@ textarea {
   gap: 0.4rem;
   align-items: center;
 }
+/* 顶栏紧凑下拉：继承全局 select 样式，仅收紧尺寸 */
 .toolbar-select {
-  font: inherit;
+  width: auto;
+  max-width: 10rem;
+  min-height: 2rem;
   font-size: 0.8125rem;
-  padding: 0.35rem 0.45rem;
+  padding: 0.35rem 2rem 0.35rem 0.5rem;
   border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  max-width: 7.5rem;
 }
 
 .sr-only {
@@ -353,6 +474,7 @@ textarea {
   margin-bottom: 0.35rem;
   color: var(--muted);
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .error {

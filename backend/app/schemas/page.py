@@ -9,5 +9,6 @@ T = TypeVar("T")
 
 
 class Page(BaseModel, Generic[T]):
+    """通用分页结构：items 为当前页数据，total 为总条数。"""
     items: list[T] = Field(default_factory=list)
     total: int = Field(ge=0, description="总条数（与 skip/limit 无关）")

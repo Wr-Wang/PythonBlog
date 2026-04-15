@@ -10,6 +10,10 @@ export function searchPosts(params = {}) {
   return client.get("/posts/search", { params });
 }
 
+export function getRecommendPosts(limit = 20) {
+  return client.get("/posts/recommend", { params: { limit } });
+}
+
 export function getPostBySlug(slug) {
   return client.get(`/posts/by-slug/${encodeURIComponent(slug)}`);
 }

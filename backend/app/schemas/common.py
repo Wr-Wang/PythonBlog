@@ -13,5 +13,6 @@ from app.datetime_utils import TZ_SHANGHAI
 def datetime_json_shanghai(dt: datetime) -> str:
     """naive 时间视为东八区墙上时间，补上 tzinfo 后输出 ISO 字符串。"""
     if dt.tzinfo is None:
+        # 历史数据库通常存 naive，本函数统一按上海时区解释。
         dt = dt.replace(tzinfo=TZ_SHANGHAI)
     return dt.isoformat()

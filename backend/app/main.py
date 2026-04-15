@@ -19,11 +19,13 @@ from app.lifespan import app_lifespan
 from app.routers import (
     auth,
     categories,
+    columns,
     comments,
     interactions,
     ops,
     posts,
     rbac,
+    social,
     tags,
     upload,
     users_admin,
@@ -66,10 +68,12 @@ app.include_router(auth.router)
 app.include_router(posts.router)
 app.include_router(interactions.router)
 app.include_router(categories.router)
+app.include_router(columns.router)
 app.include_router(tags.router)
 app.include_router(users_admin.router)
 app.include_router(comments.router)
 app.include_router(rbac.router)
+app.include_router(social.router)
 app.include_router(ops.router)
 app.include_router(workflow.router)
 app.include_router(upload.router)

@@ -41,6 +41,7 @@ _limiter = _SlidingWindowLimiter()
 
 # 与需求 SEC-01 对应的默认配额（可按后续配置项外移）
 LIMIT_LOGIN_PER_MIN = 10
+LIMIT_AUTH_CAPTCHA_PER_MIN = 40
 LIMIT_COMMENT_PUBLIC_PER_MIN = 30
 LIMIT_UPLOAD_IMAGE_PER_MIN = 30
 
@@ -65,6 +66,7 @@ class RateLimit:
 
 # 预置依赖（每分钟 = 60 秒窗口）
 rate_limit_login = RateLimit(LIMIT_LOGIN_PER_MIN, 60, "auth_login")
+rate_limit_auth_captcha = RateLimit(LIMIT_AUTH_CAPTCHA_PER_MIN, 60, "auth_captcha")
 rate_limit_comment_public = RateLimit(LIMIT_COMMENT_PUBLIC_PER_MIN, 60, "comment_public")
 rate_limit_upload_image = RateLimit(LIMIT_UPLOAD_IMAGE_PER_MIN, 60, "upload_image")
 
@@ -72,6 +74,10 @@ rate_limit_upload_image = RateLimit(LIMIT_UPLOAD_IMAGE_PER_MIN, 60, "upload_imag
 def require_rate_limit_login(request: Request) -> None:
     """供 Depends() 使用。勿直接 Depends(rate_limit_login)：类实例 __call__ 在部分 FastAPI 下会把 request 误判为 query 参数。"""
     rate_limit_login(request)
+
+
+def require_rate_limit_auth_captcha(request: Request) -> None:
+    rate_limit_auth_captcha(request)
 
 
 def require_rate_limit_comment_public(request: Request) -> None:

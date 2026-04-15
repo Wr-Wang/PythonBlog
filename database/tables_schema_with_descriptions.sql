@@ -1,14 +1,11 @@
 /*
-  BlogDB 全量表结构脚本（SQL Server）
-  ==================================
-  用途：
-  1) 新环境一键建表；
-  2) 老环境增量补齐缺失列/索引；
-  3) 与 backend/app/models 当前结构保持一致。
-
-  使用顺序：
-  - 先执行 database/init.sql
-  - 再执行本文件
+  BlogDB 全量表结构与字段说明脚本（SQL Server）
+  ===========================================
+  生成日期：2026-04-15
+  目标：
+  1) 创建当前后端模型所需全部表；
+  2) 创建关键索引、唯一约束、外键；
+  3) 写入表/字段 MS_Description 注释（可重复执行）。
 */
 
 USE BlogDB;
@@ -19,7 +16,6 @@ SET QUOTED_IDENTIFIER ON;
 GO
 
 /* ==================== 基础表 ==================== */
-
 IF OBJECT_ID(N'dbo.users', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.users (
@@ -31,7 +27,6 @@ BEGIN
     );
 END
 GO
-
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.users') AND name = N'UQ_users_username')
     CREATE UNIQUE INDEX UQ_users_username ON dbo.users(username);
 GO
@@ -47,7 +42,6 @@ BEGIN
     );
 END
 GO
-
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.categories') AND name = N'UQ_categories_slug')
     CREATE UNIQUE INDEX UQ_categories_slug ON dbo.categories(slug);
 GO
@@ -62,13 +56,11 @@ BEGIN
     );
 END
 GO
-
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.tags') AND name = N'UQ_tags_slug')
     CREATE UNIQUE INDEX UQ_tags_slug ON dbo.tags(slug);
 GO
 
-/* ==================== posts ==================== */
-
+/* ==================== 文章与评论 ==================== */
 IF OBJECT_ID(N'dbo.posts', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.posts (
@@ -100,7 +92,6 @@ BEGIN
     );
 END
 GO
-
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.posts') AND name = N'UQ_posts_slug')
     CREATE UNIQUE INDEX UQ_posts_slug ON dbo.posts(slug);
 GO
@@ -110,7 +101,6 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.posts') AND name = N'IX_posts_category_id')
     CREATE INDEX IX_posts_category_id ON dbo.posts(category_id);
 GO
-
 IF OBJECT_ID(N'dbo.FK_posts_users', N'F') IS NULL
     ALTER TABLE dbo.posts ADD CONSTRAINT FK_posts_users FOREIGN KEY(author_id) REFERENCES dbo.users(id);
 GO
@@ -118,51 +108,6 @@ IF OBJECT_ID(N'dbo.FK_posts_categories', N'F') IS NULL
     ALTER TABLE dbo.posts ADD CONSTRAINT FK_posts_categories FOREIGN KEY(category_id) REFERENCES dbo.categories(id);
 GO
 
-/* 老库补列（posts） */
-IF COL_LENGTH(N'dbo.posts', N'review_status') IS NULL
-    ALTER TABLE dbo.posts ADD review_status NVARCHAR(20) NOT NULL CONSTRAINT DF_posts_review_status_compat DEFAULT (N'draft');
-GO
-IF COL_LENGTH(N'dbo.posts', N'favorite_count') IS NULL
-    ALTER TABLE dbo.posts ADD favorite_count INT NOT NULL CONSTRAINT DF_posts_favorite_count_compat DEFAULT (0);
-GO
-IF COL_LENGTH(N'dbo.posts', N'like_count') IS NULL
-    ALTER TABLE dbo.posts ADD like_count INT NOT NULL CONSTRAINT DF_posts_like_count_compat DEFAULT (0);
-GO
-IF COL_LENGTH(N'dbo.posts', N'view_count') IS NULL
-    ALTER TABLE dbo.posts ADD view_count INT NOT NULL CONSTRAINT DF_posts_view_count_compat DEFAULT (0);
-GO
-IF COL_LENGTH(N'dbo.posts', N'share_count') IS NULL
-    ALTER TABLE dbo.posts ADD share_count INT NOT NULL CONSTRAINT DF_posts_share_count_compat DEFAULT (0);
-GO
-IF COL_LENGTH(N'dbo.posts', N'rank_level') IS NULL
-    ALTER TABLE dbo.posts ADD rank_level INT NOT NULL CONSTRAINT DF_posts_rank_level_compat DEFAULT (1);
-GO
-IF COL_LENGTH(N'dbo.posts', N'weight') IS NULL
-    ALTER TABLE dbo.posts ADD weight INT NOT NULL CONSTRAINT DF_posts_weight_compat DEFAULT (0);
-GO
-IF COL_LENGTH(N'dbo.posts', N'hot_score') IS NULL
-    ALTER TABLE dbo.posts ADD hot_score INT NOT NULL CONSTRAINT DF_posts_hot_score_compat DEFAULT (0);
-GO
-IF COL_LENGTH(N'dbo.posts', N'is_featured') IS NULL
-    ALTER TABLE dbo.posts ADD is_featured BIT NOT NULL CONSTRAINT DF_posts_is_featured_compat DEFAULT (0);
-GO
-IF COL_LENGTH(N'dbo.posts', N'is_pinned') IS NULL
-    ALTER TABLE dbo.posts ADD is_pinned BIT NOT NULL CONSTRAINT DF_posts_is_pinned_compat DEFAULT (0);
-GO
-IF COL_LENGTH(N'dbo.posts', N'published_at') IS NULL
-    ALTER TABLE dbo.posts ADD published_at DATETIME2(3) NULL;
-GO
-IF COL_LENGTH(N'dbo.posts', N'offline_at') IS NULL
-    ALTER TABLE dbo.posts ADD offline_at DATETIME2(3) NULL;
-GO
-IF COL_LENGTH(N'dbo.posts', N'content_type') IS NULL
-    ALTER TABLE dbo.posts ADD content_type NVARCHAR(20) NULL;
-GO
-IF COL_LENGTH(N'dbo.posts', N'source_url') IS NULL
-    ALTER TABLE dbo.posts ADD source_url NVARCHAR(512) NULL;
-GO
-
-/* ==================== post_tags ==================== */
 IF OBJECT_ID(N'dbo.post_tags', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.post_tags (
@@ -179,7 +124,6 @@ IF OBJECT_ID(N'dbo.FK_post_tags_tags', N'F') IS NULL
     ALTER TABLE dbo.post_tags ADD CONSTRAINT FK_post_tags_tags FOREIGN KEY(tag_id) REFERENCES dbo.tags(id) ON DELETE CASCADE;
 GO
 
-/* ==================== comments ==================== */
 IF OBJECT_ID(N'dbo.comments', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.comments (
@@ -195,7 +139,6 @@ BEGIN
     );
 END
 GO
-
 IF OBJECT_ID(N'dbo.FK_comments_posts', N'F') IS NULL
     ALTER TABLE dbo.comments ADD CONSTRAINT FK_comments_posts FOREIGN KEY(post_id) REFERENCES dbo.posts(id) ON DELETE CASCADE;
 GO
@@ -209,14 +152,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.comme
     CREATE INDEX IX_comments_parent_id ON dbo.comments(parent_id);
 GO
 
-IF COL_LENGTH(N'dbo.comments', N'reject_type') IS NULL
-    ALTER TABLE dbo.comments ADD reject_type NVARCHAR(32) NULL;
-GO
-IF COL_LENGTH(N'dbo.comments', N'reject_reason') IS NULL
-    ALTER TABLE dbo.comments ADD reject_reason NVARCHAR(300) NULL;
-GO
-
-/* ==================== 互动表 ==================== */
+/* ==================== 互动与社交 ==================== */
 IF OBJECT_ID(N'dbo.post_favorites', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.post_favorites (
@@ -299,16 +235,73 @@ IF OBJECT_ID(N'dbo.FK_post_view_events_posts', N'F') IS NULL
     ALTER TABLE dbo.post_view_events ADD CONSTRAINT FK_post_view_events_posts FOREIGN KEY(post_id) REFERENCES dbo.posts(id) ON DELETE CASCADE;
 GO
 
-/* ==================== 运营配置表 ==================== */
+IF OBJECT_ID(N'dbo.author_follows', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.author_follows (
+        id         INT            IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        user_key   NVARCHAR(128)  NOT NULL,
+        author_id  INT            NOT NULL,
+        created_at DATETIME2(3)   NOT NULL
+    );
+END
+GO
+IF OBJECT_ID(N'dbo.FK_author_follows_users', N'F') IS NULL
+    ALTER TABLE dbo.author_follows ADD CONSTRAINT FK_author_follows_users FOREIGN KEY(author_id) REFERENCES dbo.users(id) ON DELETE CASCADE;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.author_follows') AND name = N'UQ_author_follows_user_author')
+    CREATE UNIQUE INDEX UQ_author_follows_user_author ON dbo.author_follows(user_key, author_id);
+GO
+
+/* ==================== 专栏 ==================== */
+IF OBJECT_ID(N'dbo.columns', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.columns (
+        id              INT            IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        name            NVARCHAR(128)  NOT NULL,
+        slug            NVARCHAR(128)  NOT NULL,
+        description     NVARCHAR(500)  NULL,
+        cover_image_url NVARCHAR(512)  NULL,
+        is_public       BIT            NOT NULL CONSTRAINT DF_columns_is_public DEFAULT (1),
+        author_id       INT            NULL,
+        created_at      DATETIME2(3)   NOT NULL,
+        updated_at      DATETIME2(3)   NOT NULL
+    );
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.columns') AND name = N'UQ_columns_slug')
+    CREATE UNIQUE INDEX UQ_columns_slug ON dbo.columns(slug);
+GO
+IF OBJECT_ID(N'dbo.FK_columns_users', N'F') IS NULL
+    ALTER TABLE dbo.columns ADD CONSTRAINT FK_columns_users FOREIGN KEY(author_id) REFERENCES dbo.users(id) ON DELETE SET NULL;
+GO
+
+IF OBJECT_ID(N'dbo.column_posts', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.column_posts (
+        column_id   INT NOT NULL,
+        post_id     INT NOT NULL,
+        sort_order  INT NOT NULL CONSTRAINT DF_column_posts_sort_order DEFAULT (0),
+        CONSTRAINT PK_column_posts PRIMARY KEY CLUSTERED (column_id, post_id)
+    );
+END
+GO
+IF OBJECT_ID(N'dbo.FK_column_posts_columns', N'F') IS NULL
+    ALTER TABLE dbo.column_posts ADD CONSTRAINT FK_column_posts_columns FOREIGN KEY(column_id) REFERENCES dbo.columns(id) ON DELETE CASCADE;
+GO
+IF OBJECT_ID(N'dbo.FK_column_posts_posts', N'F') IS NULL
+    ALTER TABLE dbo.column_posts ADD CONSTRAINT FK_column_posts_posts FOREIGN KEY(post_id) REFERENCES dbo.posts(id) ON DELETE CASCADE;
+GO
+
+/* ==================== 运营 ==================== */
 IF OBJECT_ID(N'dbo.feature_flags', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.feature_flags (
-        id             INT            IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        code           NVARCHAR(64)   NOT NULL,
-        name           NVARCHAR(128)  NOT NULL,
-        enabled        BIT            NOT NULL CONSTRAINT DF_feature_flags_enabled DEFAULT (0),
-        rollout_percent INT           NOT NULL CONSTRAINT DF_feature_flags_rollout_percent DEFAULT (0),
-        created_at     DATETIME2(3)   NOT NULL
+        id              INT            IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        code            NVARCHAR(64)   NOT NULL,
+        name            NVARCHAR(128)  NOT NULL,
+        enabled         BIT            NOT NULL CONSTRAINT DF_feature_flags_enabled DEFAULT (0),
+        rollout_percent INT            NOT NULL CONSTRAINT DF_feature_flags_rollout_percent DEFAULT (0),
+        created_at      DATETIME2(3)   NOT NULL
     );
 END
 GO
@@ -385,9 +378,6 @@ END
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.roles') AND name = N'UQ_roles_code')
     CREATE UNIQUE INDEX UQ_roles_code ON dbo.roles(code);
-GO
-IF COL_LENGTH(N'dbo.roles', N'data_scope') IS NULL
-    ALTER TABLE dbo.roles ADD data_scope NVARCHAR(20) NOT NULL CONSTRAINT DF_roles_data_scope_compat DEFAULT (N'all');
 GO
 
 IF OBJECT_ID(N'dbo.permissions', N'U') IS NULL
@@ -547,191 +537,34 @@ DECLARE @desc TABLE (
 );
 
 INSERT INTO @desc(table_name, column_name, [value]) VALUES
--- users
-(N'users', NULL, N'后台登录用户表'),
-(N'users', N'id', N'主键ID'),
-(N'users', N'username', N'用户名，唯一'),
-(N'users', N'hashed_password', N'密码哈希'),
-(N'users', N'is_active', N'是否启用'),
-(N'users', N'created_at', N'创建时间'),
--- categories
-(N'categories', NULL, N'文章分类表'),
-(N'categories', N'id', N'主键ID'),
-(N'categories', N'name', N'分类名称'),
-(N'categories', N'slug', N'分类唯一标识'),
-(N'categories', N'created_at', N'创建时间'),
-(N'categories', N'updated_at', N'更新时间'),
--- tags
-(N'tags', NULL, N'文章标签表'),
-(N'tags', N'id', N'主键ID'),
-(N'tags', N'name', N'标签名称'),
-(N'tags', N'slug', N'标签唯一标识'),
-(N'tags', N'created_at', N'创建时间'),
--- posts
+(N'users', NULL, N'后台登录用户'),
+(N'categories', NULL, N'文章分类'),
+(N'tags', NULL, N'文章标签'),
 (N'posts', NULL, N'文章主表'),
-(N'posts', N'id', N'主键ID'),
-(N'posts', N'title', N'文章标题'),
-(N'posts', N'slug', N'文章唯一标识'),
-(N'posts', N'excerpt', N'文章摘要'),
-(N'posts', N'content', N'文章正文'),
-(N'posts', N'published', N'是否发布'),
-(N'posts', N'review_status', N'审核状态'),
-(N'posts', N'cover_image_url', N'封面图地址'),
-(N'posts', N'favorite_count', N'收藏数'),
-(N'posts', N'like_count', N'点赞数'),
-(N'posts', N'view_count', N'浏览量'),
-(N'posts', N'share_count', N'分享数'),
-(N'posts', N'rank_level', N'排序等级'),
-(N'posts', N'weight', N'运营权重'),
-(N'posts', N'hot_score', N'热度分'),
-(N'posts', N'is_featured', N'是否精选'),
-(N'posts', N'is_pinned', N'是否置顶'),
-(N'posts', N'published_at', N'发布时间'),
-(N'posts', N'offline_at', N'下线时间'),
-(N'posts', N'content_type', N'内容类型'),
-(N'posts', N'source_url', N'来源链接'),
-(N'posts', N'created_at', N'创建时间'),
-(N'posts', N'updated_at', N'更新时间'),
-(N'posts', N'author_id', N'作者用户ID'),
-(N'posts', N'category_id', N'分类ID'),
--- post_tags
-(N'post_tags', NULL, N'文章标签关联表'),
-(N'post_tags', N'post_id', N'文章ID'),
-(N'post_tags', N'tag_id', N'标签ID'),
--- comments
+(N'post_tags', NULL, N'文章与标签关联'),
 (N'comments', NULL, N'评论表'),
-(N'comments', N'id', N'主键ID'),
-(N'comments', N'post_id', N'所属文章ID'),
-(N'comments', N'parent_id', N'父评论ID'),
-(N'comments', N'author_name', N'评论者名称'),
-(N'comments', N'content', N'评论内容'),
-(N'comments', N'status', N'审核状态'),
-(N'comments', N'reject_type', N'拒绝类型'),
-(N'comments', N'reject_reason', N'拒绝原因'),
-(N'comments', N'created_at', N'创建时间'),
--- interactions
-(N'post_favorites', NULL, N'文章收藏关系'),
-(N'post_favorites', N'id', N'主键ID'),
-(N'post_favorites', N'post_id', N'文章ID'),
-(N'post_favorites', N'user_key', N'用户标识'),
-(N'post_favorites', N'created_at', N'创建时间'),
-(N'post_likes', NULL, N'文章点赞关系'),
-(N'post_likes', N'id', N'主键ID'),
-(N'post_likes', N'post_id', N'文章ID'),
-(N'post_likes', N'user_key', N'用户标识'),
-(N'post_likes', N'created_at', N'创建时间'),
-(N'post_shares', NULL, N'文章分享记录'),
-(N'post_shares', N'id', N'主键ID'),
-(N'post_shares', N'post_id', N'文章ID'),
-(N'post_shares', N'channel', N'分享渠道'),
-(N'post_shares', N'user_key', N'用户标识'),
-(N'post_shares', N'created_at', N'创建时间'),
-(N'post_reports', NULL, N'文章举报记录'),
-(N'post_reports', N'id', N'主键ID'),
-(N'post_reports', N'post_id', N'文章ID'),
-(N'post_reports', N'reason', N'举报原因'),
-(N'post_reports', N'detail', N'举报详情'),
-(N'post_reports', N'user_key', N'用户标识'),
-(N'post_reports', N'reviewed', N'是否已处理'),
-(N'post_reports', N'created_at', N'创建时间'),
-(N'post_view_events', NULL, N'文章浏览事件明细'),
-(N'post_view_events', N'id', N'主键ID'),
-(N'post_view_events', N'post_id', N'文章ID'),
-(N'post_view_events', N'user_key', N'用户标识'),
-(N'post_view_events', N'duration_sec', N'停留秒数'),
-(N'post_view_events', N'completed', N'是否读完'),
-(N'post_view_events', N'created_at', N'创建时间'),
--- ops
-(N'feature_flags', NULL, N'功能开关表'),
-(N'feature_flags', N'id', N'主键ID'),
-(N'feature_flags', N'code', N'开关编码'),
-(N'feature_flags', N'name', N'开关名称'),
-(N'feature_flags', N'enabled', N'是否启用'),
-(N'feature_flags', N'rollout_percent', N'灰度百分比'),
-(N'feature_flags', N'created_at', N'创建时间'),
-(N'sensitive_words', NULL, N'敏感词表'),
-(N'sensitive_words', N'id', N'主键ID'),
-(N'sensitive_words', N'word', N'敏感词'),
-(N'sensitive_words', N'enabled', N'是否启用'),
-(N'sensitive_words', N'created_at', N'创建时间'),
-(N'blacklist_words', NULL, N'黑名单词表'),
-(N'blacklist_words', N'id', N'主键ID'),
-(N'blacklist_words', N'word', N'黑名单词'),
-(N'blacklist_words', N'enabled', N'是否启用'),
-(N'blacklist_words', N'created_at', N'创建时间'),
-(N'search_synonyms', NULL, N'搜索同义词表'),
-(N'search_synonyms', N'id', N'主键ID'),
-(N'search_synonyms', N'src', N'原词'),
-(N'search_synonyms', N'dst', N'同义词'),
-(N'search_synonyms', N'enabled', N'是否启用'),
-(N'search_synonyms', N'created_at', N'创建时间'),
-(N'search_hotwords', NULL, N'搜索热词统计表'),
-(N'search_hotwords', N'id', N'主键ID'),
-(N'search_hotwords', N'keyword', N'关键词'),
-(N'search_hotwords', N'cnt', N'热度计数'),
-(N'search_hotwords', N'updated_at', N'更新时间'),
--- rbac
-(N'roles', NULL, N'角色表'),
-(N'roles', N'id', N'主键ID'),
-(N'roles', N'code', N'角色编码'),
-(N'roles', N'name', N'角色名称'),
-(N'roles', N'data_scope', N'数据权限范围'),
-(N'roles', N'is_active', N'是否启用'),
-(N'roles', N'created_at', N'创建时间'),
-(N'permissions', NULL, N'权限点表'),
-(N'permissions', N'id', N'主键ID'),
-(N'permissions', N'code', N'权限编码'),
-(N'permissions', N'name', N'权限名称'),
-(N'permissions', N'created_at', N'创建时间'),
-(N'menus', NULL, N'后台菜单表'),
-(N'menus', N'id', N'主键ID'),
-(N'menus', N'code', N'菜单编码'),
-(N'menus', N'name', N'菜单名称'),
-(N'menus', N'route', N'菜单路由'),
-(N'menus', N'icon', N'图标'),
-(N'menus', N'order_no', N'排序号'),
-(N'menus', N'hidden', N'是否隐藏'),
-(N'menus', N'created_at', N'创建时间'),
-(N'user_roles', NULL, N'用户角色关联表'),
-(N'user_roles', N'id', N'主键ID'),
-(N'user_roles', N'user_id', N'用户ID'),
-(N'user_roles', N'role_id', N'角色ID'),
-(N'user_roles', N'created_at', N'创建时间'),
-(N'role_permissions', NULL, N'角色权限关联表'),
-(N'role_permissions', N'id', N'主键ID'),
-(N'role_permissions', N'role_id', N'角色ID'),
-(N'role_permissions', N'permission_id', N'权限ID'),
-(N'role_permissions', N'created_at', N'创建时间'),
-(N'role_menus', NULL, N'角色菜单关联表'),
-(N'role_menus', N'id', N'主键ID'),
-(N'role_menus', N'role_id', N'角色ID'),
-(N'role_menus', N'menu_id', N'菜单ID'),
-(N'role_menus', N'created_at', N'创建时间'),
-(N'audit_logs', NULL, N'后台审计日志表'),
-(N'audit_logs', N'id', N'主键ID'),
-(N'audit_logs', N'actor_user_id', N'操作人ID'),
-(N'audit_logs', N'action', N'动作'),
-(N'audit_logs', N'target_type', N'目标类型'),
-(N'audit_logs', N'target_id', N'目标ID'),
-(N'audit_logs', N'detail', N'明细'),
-(N'audit_logs', N'created_at', N'创建时间'),
--- workflow
-(N'workflow_reason_templates', NULL, N'流程原因模板表'),
-(N'workflow_reason_templates', N'id', N'主键ID'),
-(N'workflow_reason_templates', N'name', N'模板名称'),
-(N'workflow_reason_templates', N'content', N'模板内容'),
-(N'workflow_reason_templates', N'enabled', N'是否启用'),
-(N'workflow_reason_templates', N'created_at', N'创建时间'),
-(N'workflow_audits', NULL, N'流程审计表'),
-(N'workflow_audits', N'id', N'主键ID'),
-(N'workflow_audits', N'task_type', N'任务类型'),
-(N'workflow_audits', N'biz_id', N'业务ID'),
-(N'workflow_audits', N'operator_id', N'操作人ID'),
-(N'workflow_audits', N'action', N'动作'),
-(N'workflow_audits', N'from_status', N'原状态'),
-(N'workflow_audits', N'to_status', N'目标状态'),
-(N'workflow_audits', N'remark', N'备注'),
-(N'workflow_audits', N'created_at', N'创建时间');
+(N'post_favorites', NULL, N'收藏记录'),
+(N'post_likes', NULL, N'点赞记录'),
+(N'post_shares', NULL, N'分享记录'),
+(N'post_reports', NULL, N'举报记录'),
+(N'post_view_events', NULL, N'浏览事件'),
+(N'author_follows', NULL, N'作者关注关系'),
+(N'columns', NULL, N'专栏主表'),
+(N'column_posts', NULL, N'专栏文章关联'),
+(N'feature_flags', NULL, N'功能开关'),
+(N'sensitive_words', NULL, N'敏感词'),
+(N'blacklist_words', NULL, N'黑名单词'),
+(N'search_synonyms', NULL, N'搜索同义词'),
+(N'search_hotwords', NULL, N'搜索热词'),
+(N'roles', NULL, N'角色'),
+(N'permissions', NULL, N'权限点'),
+(N'menus', NULL, N'后台菜单'),
+(N'user_roles', NULL, N'用户角色关联'),
+(N'role_permissions', NULL, N'角色权限关联'),
+(N'role_menus', NULL, N'角色菜单关联'),
+(N'audit_logs', NULL, N'后台审计日志'),
+(N'workflow_reason_templates', NULL, N'流程原因模板'),
+(N'workflow_audits', NULL, N'流程审计日志');
 
 DECLARE @t SYSNAME, @c SYSNAME, @v NVARCHAR(1000);
 DECLARE cur_desc CURSOR LOCAL FAST_FORWARD FOR
@@ -762,30 +595,7 @@ BEGIN
                     @level0type = N'SCHEMA', @level0name = N'dbo',
                     @level1type = N'TABLE',  @level1name = @t;
         END
-        ELSE IF COL_LENGTH(N'dbo.' + @t, @c) IS NOT NULL
-        BEGIN
-            IF EXISTS (
-                SELECT 1
-                FROM sys.extended_properties ep
-                JOIN sys.columns c ON c.object_id = ep.major_id AND c.column_id = ep.minor_id
-                WHERE ep.major_id = OBJECT_ID(N'dbo.' + @t)
-                  AND c.name = @c
-                  AND ep.name = N'MS_Description'
-            )
-                EXEC sys.sp_updateextendedproperty
-                    @name = N'MS_Description', @value = @v,
-                    @level0type = N'SCHEMA', @level0name = N'dbo',
-                    @level1type = N'TABLE',  @level1name = @t,
-                    @level2type = N'COLUMN', @level2name = @c;
-            ELSE
-                EXEC sys.sp_addextendedproperty
-                    @name = N'MS_Description', @value = @v,
-                    @level0type = N'SCHEMA', @level0name = N'dbo',
-                    @level1type = N'TABLE',  @level1name = @t,
-                    @level2type = N'COLUMN', @level2name = @c;
-        END
     END
-
     FETCH NEXT FROM cur_desc INTO @t, @c, @v;
 END
 
@@ -793,5 +603,118 @@ CLOSE cur_desc;
 DEALLOCATE cur_desc;
 GO
 
-PRINT N'BlogDB 全量结构脚本执行完成（含增量补齐与字段说明）。';
+/* 为所有字段补齐注释：先用业务字典，再用“字段名”兜底，确保全字段都有说明 */
+DECLARE @col_desc TABLE (
+    table_name  SYSNAME        NOT NULL,
+    column_name SYSNAME        NOT NULL,
+    [value]     NVARCHAR(1000) NOT NULL
+);
+
+INSERT INTO @col_desc(table_name, column_name, [value]) VALUES
+(N'users', N'id', N'主键ID'),
+(N'users', N'username', N'用户名（唯一）'),
+(N'users', N'hashed_password', N'密码哈希'),
+(N'users', N'is_active', N'是否启用'),
+(N'posts', N'review_status', N'审核状态：draft/pending/approved/rejected/offline'),
+(N'posts', N'is_pinned', N'是否置顶'),
+(N'posts', N'is_featured', N'是否精选'),
+(N'comments', N'parent_id', N'父评论ID'),
+(N'columns', N'is_public', N'是否公开'),
+(N'column_posts', N'sort_order', N'专栏内排序（升序）'),
+(N'feature_flags', N'rollout_percent', N'灰度比例（0-100）'),
+(N'roles', N'data_scope', N'数据权限范围'),
+(N'menus', N'order_no', N'菜单排序号'),
+(N'workflow_audits', N'biz_id', N'业务对象ID'),
+(N'workflow_audits', N'operator_id', N'操作人ID');
+
+DECLARE @ot SYSNAME, @oc SYSNAME, @ov NVARCHAR(1000);
+DECLARE cur_col CURSOR LOCAL FAST_FORWARD FOR
+    SELECT table_name, column_name, [value] FROM @col_desc;
+
+OPEN cur_col;
+FETCH NEXT FROM cur_col INTO @ot, @oc, @ov;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    IF OBJECT_ID(N'dbo.' + @ot, N'U') IS NOT NULL
+       AND COL_LENGTH(N'dbo.' + @ot, @oc) IS NOT NULL
+    BEGIN
+        IF EXISTS (
+            SELECT 1
+            FROM sys.extended_properties ep
+            JOIN sys.columns c ON c.object_id = ep.major_id AND c.column_id = ep.minor_id
+            WHERE ep.major_id = OBJECT_ID(N'dbo.' + @ot)
+              AND c.name = @oc
+              AND ep.name = N'MS_Description'
+        )
+            EXEC sys.sp_updateextendedproperty
+                @name = N'MS_Description', @value = @ov,
+                @level0type = N'SCHEMA', @level0name = N'dbo',
+                @level1type = N'TABLE',  @level1name = @ot,
+                @level2type = N'COLUMN', @level2name = @oc;
+        ELSE
+            EXEC sys.sp_addextendedproperty
+                @name = N'MS_Description', @value = @ov,
+                @level0type = N'SCHEMA', @level0name = N'dbo',
+                @level1type = N'TABLE',  @level1name = @ot,
+                @level2type = N'COLUMN', @level2name = @oc;
+    END
+    FETCH NEXT FROM cur_col INTO @ot, @oc, @ov;
+END
+
+CLOSE cur_col;
+DEALLOCATE cur_col;
 GO
+
+/* 对未写业务字典的字段，自动兜底注释为“字段：<column_name>” */
+DECLARE @tt SYSNAME, @cc SYSNAME, @auto NVARCHAR(1000);
+DECLARE cur_auto CURSOR LOCAL FAST_FORWARD FOR
+SELECT t.name, c.name
+FROM sys.tables t
+JOIN sys.columns c ON c.object_id = t.object_id
+LEFT JOIN sys.extended_properties ep
+  ON ep.major_id = c.object_id
+ AND ep.minor_id = c.column_id
+ AND ep.name = N'MS_Description'
+WHERE t.schema_id = SCHEMA_ID(N'dbo')
+  AND ep.value IS NULL;
+
+OPEN cur_auto;
+FETCH NEXT FROM cur_auto INTO @tt, @cc;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @auto = N'字段：' + @cc;
+    EXEC sys.sp_addextendedproperty
+        @name = N'MS_Description', @value = @auto,
+        @level0type = N'SCHEMA', @level0name = N'dbo',
+        @level1type = N'TABLE',  @level1name = @tt,
+        @level2type = N'COLUMN', @level2name = @cc;
+    FETCH NEXT FROM cur_auto INTO @tt, @cc;
+END
+
+CLOSE cur_auto;
+DEALLOCATE cur_auto;
+GO
+
+/* 注释覆盖检查：若返回空结果，表示所有字段均有注释 */
+;WITH all_cols AS (
+    SELECT
+        t.name AS table_name,
+        c.name AS column_name,
+        ep.value AS col_desc
+    FROM sys.tables t
+    JOIN sys.columns c ON c.object_id = t.object_id
+    LEFT JOIN sys.extended_properties ep
+      ON ep.major_id = c.object_id
+     AND ep.minor_id = c.column_id
+     AND ep.name = N'MS_Description'
+    WHERE t.schema_id = SCHEMA_ID(N'dbo')
+)
+SELECT table_name, column_name
+FROM all_cols
+WHERE col_desc IS NULL
+ORDER BY table_name, column_name;
+GO
+
+PRINT N'BlogDB 全量表结构与字段说明脚本执行完成。';
+GO
+

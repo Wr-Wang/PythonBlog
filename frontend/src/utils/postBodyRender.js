@@ -7,6 +7,7 @@ import { marked } from "marked";
 const LOOKS_LIKE_HTML = /^\s*<[!/?]?[a-zA-Z]/;
 
 function iframeSrcAllowed(src) {
+  /** 仅允许可信视频站点 iframe 源，阻断脚本协议注入。 */
   if (!src || typeof src !== "string") return false;
   const s = src.trim();
   const low = s.toLowerCase();
@@ -37,6 +38,7 @@ function iframeSrcAllowed(src) {
 let purifyHooks = false;
 
 function ensurePurifyHooks() {
+  /** 只注册一次 DOMPurify hook，避免重复叠加开销。 */
   if (purifyHooks) return;
   purifyHooks = true;
   DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
@@ -49,6 +51,7 @@ function ensurePurifyHooks() {
 }
 
 export function postBodyLooksLikeHtml(raw) {
+  /** 粗略判断正文是否已是 HTML（兼容旧 Markdown 数据）。 */
   return LOOKS_LIKE_HTML.test(raw || "");
 }
 

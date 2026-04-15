@@ -4,8 +4,10 @@
  */
 export * from "./auth.js";
 export * from "./categories.js";
+export * from "./columns.js";
 export * from "./comments.js";
 export * from "./posts.js";
+export * from "./social.js";
 export * from "./rbac.js";
 export * from "./ops.js";
 export * from "./tags.js";

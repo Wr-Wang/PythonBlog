@@ -1,0 +1,33 @@
+INFO:     已挂载前端 SPA（/assets + index 回退）: E:\Demo\Cursor\PythonBlog\frontend\dist
+INFO:     Started server process [20272]
+INFO:     Waiting for application startup.
+e:\Demo\Cursor\PythonBlog\backend\app\database.py:30: SAWarning: Unrecognized server version info '17.0.1000.7'.  Some SQL Server features may not function properly.
+  _orig(self)
+INFO:     已检查/创建数据库: BlogDB
+INFO:     数据库初始化成功
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:2991 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61586:0 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /admin/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /assets/index-DE3-WIod.js HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49735:0 - "GET /assets/index-jLHPpM3n.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49735:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/categories/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56805:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/columns/admin?skip=0&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49735:0 - "GET /api/posts/admin?skip=0&limit=200 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49735:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56805:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49735:0 - "GET /api/categories/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/tags/admin?limit=500 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/posts/admin?skip=0&limit=20&sort_by=created_at&sort_dir=desc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56805:0 - "GET /favicon.ico HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/admin/ops/dashboard/visual?start_date=2026-04-02&end_date=2026-04-15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49735:0 - "GET /api/admin/ops/trends?start_date=2026-04-02&end_date=2026-04-15 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60427:0 - "GET /api/admin/ops/feature-flags HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56805:0 - "GET /api/admin/ops/search-ops HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65277:0 - "GET /api/admin/ops/moderation/sensitive-groups HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49735:0 - "GET /api/admin/ops/moderation HTTP/1.1" 200 OK

@@ -26,6 +26,7 @@ async def app_lifespan(app: FastAPI):
     app.state.db_ready = False
     app.state.db_error = None
     try:
+        # 1) 确保数据库存在；2) 确保上传目录存在；3) 执行初始化与补偿任务。
         ensure_sql_server_database(settings.database_url)
         Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
         init_db()
@@ -45,6 +46,7 @@ async def app_lifespan(app: FastAPI):
     stop_event = asyncio.Event()
 
     async def _scheduler_loop():
+        """后台循环：每 30 秒扫描并执行到期上下线任务。"""
         while not stop_event.is_set():
             db = SessionLocal()
             try:
@@ -56,11 +58,13 @@ async def app_lifespan(app: FastAPI):
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=30.0)
             except TimeoutError:
+                # 正常超时表示继续下一轮轮询，不视为异常。
                 pass
 
     task = asyncio.create_task(_scheduler_loop())
     try:
         yield
     finally:
+        # 先发停止信号再取消任务，尽量减少退出时的竞态噪音日志。
         stop_event.set()
         task.cancel()

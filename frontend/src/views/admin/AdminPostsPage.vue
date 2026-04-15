@@ -1,6 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { ref } from "vue";
 import { marked } from "marked";
 import AdminPaginationBar from "../../components/AdminPaginationBar.vue";
 import BaseModal from "../../components/BaseModal.vue";
@@ -17,17 +16,11 @@ import {
   updatePost,
   uploadImage,
 } from "../../api";
+import { useAdminListPage } from "../../composables/useAdminListPage";
 import { hasPermission } from "../../utils/permissions";
-
-const router = useRouter();
-const rows = ref([]);
-const total = ref(0);
-const page = ref(1);
-const pageSize = ref(20);
+// 列表筛选器状态。
 const categories = ref([]);
 const tags = ref([]);
-const loading = ref(true);
-const err = ref("");
 const q = ref("");
 const fReviewStatus = ref("");
 const fPublishedOnly = ref("");
@@ -38,6 +31,7 @@ const fFeaturedOnly = ref("");
 const fCategoryFilter = ref("");
 const fTagFilter = ref("");
 
+// 文章新增/编辑弹窗状态与字段。
 const formOpen = ref(false);
 const formTitle = ref("新增文章");
 const editingId = ref(null);
@@ -61,9 +55,11 @@ const fSourceUrl = ref("");
 const formErr = ref("");
 const saving = ref(false);
 
+// 删除确认弹窗状态。
 const delOpen = ref(false);
 const delTarget = ref(null);
 const delMsg = ref("");
+// 页面级权限开关（控制操作入口可见性）。
 const canViewPosts = hasPermission("admin.posts.view");
 const canCreatePost = hasPermission("admin.posts.create");
 const canEditPost = hasPermission("admin.posts.update");
@@ -73,39 +69,27 @@ const canFeaturePost = hasPermission("admin.posts.featured.update");
 const canPublishNow = hasPermission("admin.posts.publish.now");
 const canOfflineNow = hasPermission("admin.posts.offline.now");
 
-function tagChecked(id) {
-  return fTagIds.value.includes(id);
-}
-function toggleTag(id) {
-  const i = fTagIds.value.indexOf(id);
-  if (i >= 0) fTagIds.value = fTagIds.value.filter((x) => x !== id);
-  else fTagIds.value = [...fTagIds.value, id];
-}
-
-async function loadMeta() {
-  const [c, t] = await Promise.all([
-    listCategoriesAdmin({ limit: 500 }),
-    listTagsAdmin({ limit: 500 }),
-  ]);
-  categories.value = c.data.items ?? c.data;
-  tags.value = t.data.items ?? t.data;
-}
-
-async function load() {
-  loading.value = true;
-  err.value = "";
-  if (!canViewPosts) {
-    loading.value = false;
-    err.value = "缺少权限: admin.posts.view";
-    return;
-  }
-  try {
+// 注意：useAdminListPage 内部 watch(..., { immediate: true }) 会立即触发 load，
+// 因此 listFn 依赖的筛选 ref/权限常量必须先完成初始化，避免 TDZ 报错。
+const {
+  rows,
+  total,
+  page,
+  pageSize,
+  loading,
+  err,
+  load,
+  setPage,
+  onPageSizeChange,
+} = useAdminListPage({
+  listFn: async ({ skip, limit }) => {
+    // 无权限时返回空数据，避免无意义请求。
+    if (!canViewPosts) return { data: { items: [], total: 0 } };
+    // 文章筛选依赖分类/标签元数据，列表请求前先确保可用。
     await loadMeta();
-    let p = page.value;
-    const skip = (p - 1) * pageSize.value;
-    const params = {
+    return adminListPosts({
       skip,
-      limit: pageSize.value,
+      limit,
       q: q.value.trim() || undefined,
       review_status: fReviewStatus.value || undefined,
       published: fPublishedOnly.value === "" ? undefined : fPublishedOnly.value === "true",
@@ -115,45 +99,42 @@ async function load() {
       is_featured: fFeaturedOnly.value === "" ? undefined : fFeaturedOnly.value === "true",
       sort_by: fSortBy.value,
       sort_dir: fSortDir.value,
-    };
-    let { data } = await adminListPosts(params);
-    const maxP = Math.max(1, Math.ceil(data.total / pageSize.value) || 1);
-    if (p > maxP && data.total >= 0) {
-      page.value = maxP;
-      p = maxP;
-      ({ data } = await adminListPosts({ ...params, skip: (p - 1) * pageSize.value }));
-    }
-    rows.value = data.items;
-    total.value = data.total;
-  } catch (e) {
-    err.value = e.response?.data?.detail || e.message || "加载失败";
-    if (e.response?.status === 401) {
-      localStorage.removeItem("blog_token");
-      router.push({ name: "admin-login", query: { redirect: "/admin/posts" } });
-    }
-  } finally {
-    loading.value = false;
-  }
+    });
+  },
+  redirectPath: "/admin/posts",
+});
+
+function tagChecked(id) {
+  /** 标签多选：判断某标签是否已选。 */
+  return fTagIds.value.includes(id);
+}
+function toggleTag(id) {
+  /** 标签多选：切换某标签的选中状态。 */
+  const i = fTagIds.value.indexOf(id);
+  if (i >= 0) fTagIds.value = fTagIds.value.filter((x) => x !== id);
+  else fTagIds.value = [...fTagIds.value, id];
 }
 
-watch(page, load, { immediate: true });
-
-function setPage(v) {
-  page.value = v;
+async function loadMeta() {
+  /** 拉取分类与标签元数据，供筛选与编辑表单复用。 */
+  const [c, t] = await Promise.all([
+    listCategoriesAdmin({ limit: 500 }),
+    listTagsAdmin({ limit: 500 }),
+  ]);
+  categories.value = c.data.items ?? c.data;
+  tags.value = t.data.items ?? t.data;
 }
 
-function onPageSizeChange(newSize) {
-  pageSize.value = newSize;
-  if (page.value !== 1) page.value = 1;
-  else load();
-}
+if (!canViewPosts) err.value = "缺少权限: admin.posts.view";
 
 function applyFilters() {
+  /** 应用筛选：优先回到第一页，确保分页与筛选一致。 */
   if (page.value !== 1) page.value = 1;
   else load();
 }
 
 function openCreate() {
+  /** 打开新增文章弹窗并重置全部字段。 */
   editingId.value = null;
   formTitle.value = "新增文章";
   fTitle.value = "";
@@ -178,6 +159,7 @@ function openCreate() {
 }
 
 function openEdit(row) {
+  /** 打开编辑文章弹窗并回填字段。 */
   editingId.value = row.id;
   formTitle.value = "编辑文章";
   fTitle.value = row.title;
@@ -202,6 +184,7 @@ function openEdit(row) {
 }
 
 function suggestSlug() {
+  /** 基于标题生成 slug（仅新增态自动建议，不覆盖编辑态）。 */
   const t = fTitle.value.trim();
   if (!t || editingId.value) return;
   const s = t
@@ -213,6 +196,7 @@ function suggestSlug() {
 }
 
 async function onPickCover(e) {
+  /** 上传封面图片并回填 URL。 */
   const file = e.target.files?.[0];
   if (!file) return;
   formErr.value = "";
@@ -226,6 +210,7 @@ async function onPickCover(e) {
 }
 
 async function saveForm() {
+  /** 保存文章（新增/编辑统一入口）。 */
   formErr.value = "";
   const body = {
     title: fTitle.value.trim(),
@@ -267,12 +252,14 @@ async function saveForm() {
 }
 
 function askDelete(row) {
+  /** 打开删除文章确认弹窗。 */
   delTarget.value = row;
   delMsg.value = `确定删除文章「${row.title}」（id=${row.id}）？此操作不可恢复。`;
   delOpen.value = true;
 }
 
 async function confirmDelete() {
+  /** 确认删除文章并刷新列表。 */
   if (!delTarget.value) return;
   try {
     await deletePost(delTarget.value.id);
@@ -296,6 +283,7 @@ function normalizeEditorContent(raw) {
 }
 
 function isRichTextEmpty(html) {
+  /** 判断富文本正文是否仅包含空标签/空白字符。 */
   if (html == null || !String(html).trim()) return true;
   const t = String(html)
     .replace(/<br\s*\/?>/gi, "")
@@ -308,6 +296,7 @@ function isRichTextEmpty(html) {
 }
 
 function toLocalDateTime(v) {
+  /** ISO 时间转 datetime-local 输入控件格式。 */
   if (!v) return "";
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return "";
@@ -316,6 +305,7 @@ function toLocalDateTime(v) {
 }
 
 function fromLocalDateTime(v) {
+  /** datetime-local 值转 ISO 字符串。 */
   if (!v) return null;
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return null;
@@ -323,16 +313,19 @@ function fromLocalDateTime(v) {
 }
 
 async function quickTogglePinned(row) {
+  /** 快捷切换置顶状态。 */
   await updatePost(row.id, { is_pinned: !row.is_pinned });
   await load();
 }
 
 async function quickToggleFeatured(row) {
+  /** 快捷切换精选状态。 */
   await updatePost(row.id, { is_featured: !row.is_featured });
   await load();
 }
 
 async function quickTransition(row, toStatus) {
+  /** 快捷触发审核流转（发布/下线等）。 */
   await transitionPost(row.id, toStatus);
   await load();
 }
@@ -345,6 +338,7 @@ async function quickTransition(row, toStatus) {
         正文为富文本（图文、视频嵌入、表情）；旧文章若为 Markdown，打开编辑时会自动转为 HTML 保存。访客仅可见已发布文章。
       </p>
       <div class="admin-toolbar-actions">
+        <!-- 顶部筛选器统一拼装为 listFn 查询参数。 -->
         <input v-model="q" placeholder="搜索标题/slug/摘要" />
         <select v-model="fReviewStatus">
           <option value="">审核状态：全部</option>
@@ -393,6 +387,7 @@ async function quickTransition(row, toStatus) {
       </div>
     </div>
     <div class="admin-pagination-wrap">
+      <!-- 列表分页：复用通用分页条组件。 -->
       <AdminPaginationBar
         v-if="!loading && !err && total > 0"
         :total="total"
@@ -451,6 +446,7 @@ async function quickTransition(row, toStatus) {
               <span v-else class="tags-empty">—</span>
             </td>
             <td class="admin-ops">
+              <!-- 快捷操作由权限组合控制，避免展示不可执行动作。 -->
               <a v-if="canEditPost" href="#" class="op-link" @click.prevent="openEdit(r)">编辑</a>
               <span v-if="canEditPost && (canPinPost || canFeaturePost || canPublishNow || canOfflineNow || canDeletePost)" class="op-sep"> | </span>
               <a v-if="canPinPost" href="#" class="op-link" @click.prevent="quickTogglePinned(r)">{{ r.is_pinned ? "取消置顶" : "置顶" }}</a>
@@ -470,6 +466,7 @@ async function quickTransition(row, toStatus) {
     </div>
 
     <BaseModal :open="formOpen" :title="formTitle" wide @close="formOpen = false">
+      <!-- 新增/编辑共用文章表单。 -->
       <div class="form-grid">
         <label>标题 <input v-model="fTitle" @blur="suggestSlug" /></label>
         <label>slug <input v-model="fSlug" /></label>
@@ -487,6 +484,7 @@ async function quickTransition(row, toStatus) {
           </select>
         </label>
         <div class="form-field full">
+          <!-- 标签采用多选 chip 样式，实际提交 tag_ids。 -->
           <span class="form-field-label">标签（多选）</span>
           <div class="tags-grid" role="group" aria-label="标签（多选）">
             <label v-for="t in tags" :key="t.id" class="tag-chk">
@@ -513,6 +511,7 @@ async function quickTransition(row, toStatus) {
         <label>内容类型 <input v-model="fContentType" placeholder="article/video/image/link/text" /></label>
         <label>来源链接 <input v-model="fSourceUrl" placeholder="https://..." /></label>
         <label class="full">
+          <!-- 上传成功后会把返回 URL 写回封面字段。 -->
           上传图片
           <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="onPickCover" />
         </label>

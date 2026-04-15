@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -21,6 +22,7 @@ _BATCH_ACTIONS = {"approve", "reject", "offline", "reassign"}
 
 
 def _can_view_workflow(db: Session, user_id: int) -> bool:
+    """判定用户是否具备流程中心可见权限（含超管兜底）。"""
     codes = get_user_permission_codes(db, user_id)
     return (
         user_has_permission(codes, "admin.super")
@@ -31,6 +33,7 @@ def _can_view_workflow(db: Session, user_id: int) -> bool:
 
 
 def _compute_priority(created_at: datetime) -> str:
+    """根据任务创建时长映射优先级，供前端快速着色展示。"""
     age_hours = max(0.0, (now_shanghai_naive() - created_at).total_seconds() / 3600)
     if age_hours >= 24:
         return "high"
@@ -40,6 +43,7 @@ def _compute_priority(created_at: datetime) -> str:
 
 
 def _parse_date_range(start_date: str | None, end_date: str | None) -> tuple[datetime | None, datetime | None]:
+    """解析日期筛选区间（右边界按次日零点处理）。"""
     start_dt: datetime | None = None
     end_dt: datetime | None = None
     if start_date:
@@ -55,7 +59,50 @@ def _parse_date_range(start_date: str | None, end_date: str | None) -> tuple[dat
     return start_dt, end_dt
 
 
+def _candidate_limit(page: int, size: int, task_type: str) -> int:
+    """
+    候选任务上限：
+    - 分页仍在聚合后进行，但按页大小动态扩大候选窗口，避免固定 300 在深分页下截断。
+    - 限制最大值防止一次拉取过多造成内存和数据库压力。
+    """
+    type_factor = 4 if task_type == "all" else 2
+    return max(300, min(1200, page * size * type_factor))
+
+
+def _classify_batch_error(msg: str) -> str:
+    """将批处理异常归一为稳定错误码，便于前端分组统计。"""
+    text = (msg or "").strip().lower()
+    if "invalid task id" in text:
+        return "INVALID_TASK_ID"
+    if "not found" in text:
+        return "NOT_FOUND"
+    if "does not support reassign" in text:
+        return "ACTION_NOT_SUPPORTED"
+    if "unsupported task kind" in text:
+        return "UNSUPPORTED_TASK_KIND"
+    if "forbidden" in text:
+        return "FORBIDDEN"
+    return "UNKNOWN"
+
+
+def _collect_failed_examples(details: list[dict], limit_per_code: int = 3) -> dict[str, list[str]]:
+    """从失败明细中提取样本 task_id，便于前端快速定位。"""
+    out: dict[str, list[str]] = {}
+    for item in details:
+        if item.get("ok"):
+            continue
+        code = str(item.get("error_code") or "UNKNOWN")
+        bucket = out.setdefault(code, [])
+        if len(bucket) >= limit_per_code:
+            continue
+        task_id = str(item.get("task_id") or "")
+        if task_id:
+            bucket.append(task_id)
+    return out
+
+
 class WorkflowBatchActionIn(BaseModel):
+    """批量流程操作入参：任务集合、动作、模板、转派与备注。"""
     task_ids: list[str] = Field(default_factory=list, min_length=1)
     action: str = Field(..., min_length=3, max_length=20)
     reason_template_id: int | None = None
@@ -75,6 +122,7 @@ def list_workflow_tasks(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
 ):
+    """统一任务池查询：聚合 post/comment/report 并在内存分页。"""
     if task_type not in _TASK_TYPES:
         raise HTTPException(status_code=400, detail=f"invalid task_type: {task_type}")
     if status not in _TASK_STATUSES:
@@ -83,11 +131,13 @@ def list_workflow_tasks(
         raise HTTPException(status_code=403, detail="forbidden")
 
     start_dt, end_dt = _parse_date_range(start_date, end_date)
+    candidate_limit = _candidate_limit(page, size, task_type)
 
     tasks: list[dict] = []
     kw = (keyword or "").strip()
 
     if task_type in {"all", "post"}:
+        # 文章任务：审核状态来自 review_status，兼容已发布但无状态的历史数据。
         q = db.query(Post, User.username).outerjoin(User, User.id == Post.author_id)
         if status != "all":
             q = q.filter(Post.review_status == status)
@@ -97,7 +147,7 @@ def list_workflow_tasks(
             q = q.filter(Post.created_at >= start_dt)
         if end_dt:
             q = q.filter(Post.created_at < end_dt)
-        rows = q.order_by(Post.created_at.desc()).limit(300).all()
+        rows = q.order_by(Post.created_at.desc()).limit(candidate_limit).all()
         for p, author_name in rows:
             created = p.created_at or now_shanghai_naive()
             tasks.append(
@@ -117,6 +167,7 @@ def list_workflow_tasks(
             )
 
     if task_type in {"all", "comment"}:
+        # 评论任务：以评论状态为准，标题用“评论@文章名”增强可读性。
         q = db.query(Comment, Post.title).outerjoin(Post, Post.id == Comment.post_id)
         if status != "all":
             q = q.filter(Comment.status == status)
@@ -126,7 +177,7 @@ def list_workflow_tasks(
             q = q.filter(Comment.created_at >= start_dt)
         if end_dt:
             q = q.filter(Comment.created_at < end_dt)
-        rows = q.order_by(Comment.created_at.desc()).limit(300).all()
+        rows = q.order_by(Comment.created_at.desc()).limit(candidate_limit).all()
         for c, post_title in rows:
             created = c.created_at or now_shanghai_naive()
             tasks.append(
@@ -146,6 +197,7 @@ def list_workflow_tasks(
             )
 
     if task_type in {"all", "report"}:
+        # 举报任务：reviewed=False 视作 open，True 视作 closed。
         q = db.query(PostReport, Post.title).outerjoin(Post, Post.id == PostReport.post_id)
         if status == "open":
             q = q.filter(PostReport.reviewed == False)  # noqa: E712
@@ -159,7 +211,7 @@ def list_workflow_tasks(
             q = q.filter(PostReport.created_at >= start_dt)
         if end_dt:
             q = q.filter(PostReport.created_at < end_dt)
-        rows = q.order_by(PostReport.created_at.desc()).limit(300).all()
+        rows = q.order_by(PostReport.created_at.desc()).limit(candidate_limit).all()
         for r, post_title in rows:
             created = r.created_at or now_shanghai_naive()
             tasks.append(
@@ -178,6 +230,7 @@ def list_workflow_tasks(
                 }
             )
 
+    # 三类任务合流后再统一按创建时间倒序，确保跨类型排序稳定。
     tasks.sort(key=lambda x: x["created_at"], reverse=True)
     total = len(tasks)
     start_idx = (page - 1) * size
@@ -194,6 +247,7 @@ def workflow_sla_summary(
     start_date: str | None = Query(None, description="YYYY-MM-DD"),
     end_date: str | None = Query(None, description="YYYY-MM-DD"),
 ):
+    """SLA 汇总：待处理、超时、今日处理、平均处理时长。"""
     if task_type not in _TASK_TYPES:
         raise HTTPException(status_code=400, detail=f"invalid task_type: {task_type}")
     if status not in _TASK_STATUSES:
@@ -203,11 +257,13 @@ def workflow_sla_summary(
 
     start_dt, end_dt = _parse_date_range(start_date, end_date)
     now = now_shanghai_naive()
+    timeout_line = now - timedelta(hours=24)
     today_start = datetime(now.year, now.month, now.day)
     pending_count = 0
     timeout_count = 0
 
     if task_type in {"all", "post"} and status in {"all", "pending", "draft", "approved", "rejected", "offline"}:
+        # 草稿和待审都属于“待处理”口径。
         q = db.query(Post)
         if status != "all":
             q = q.filter(Post.review_status == status)
@@ -215,15 +271,12 @@ def workflow_sla_summary(
             q = q.filter(Post.created_at >= start_dt)
         if end_dt:
             q = q.filter(Post.created_at < end_dt)
-        for p in q.all():
-            created = p.created_at or now
-            st = p.review_status or ("approved" if p.published else "draft")
-            if st in {"pending", "draft"}:
-                pending_count += 1
-            if st in {"pending", "draft"} and now > created + timedelta(hours=24):
-                timeout_count += 1
+        post_pending_q = q.filter(or_(Post.review_status == "pending", Post.review_status == "draft"))
+        pending_count += int(post_pending_q.count() or 0)
+        timeout_count += int(post_pending_q.filter(Post.created_at < timeout_line).count() or 0)
 
     if task_type in {"all", "comment"} and status in {"all", "pending", "approved", "rejected"}:
+        # 评论仅 pending 算待处理，其余视作已处理。
         q = db.query(Comment)
         if status != "all":
             q = q.filter(Comment.status == status)
@@ -231,14 +284,12 @@ def workflow_sla_summary(
             q = q.filter(Comment.created_at >= start_dt)
         if end_dt:
             q = q.filter(Comment.created_at < end_dt)
-        for c in q.all():
-            created = c.created_at or now
-            if c.status == "pending":
-                pending_count += 1
-            if c.status == "pending" and now > created + timedelta(hours=24):
-                timeout_count += 1
+        comment_pending_q = q.filter(Comment.status == "pending")
+        pending_count += int(comment_pending_q.count() or 0)
+        timeout_count += int(comment_pending_q.filter(Comment.created_at < timeout_line).count() or 0)
 
     if task_type in {"all", "report"} and status in {"all", "open", "closed", "approved", "offline"}:
+        # 举报待处理口径为 reviewed=False。
         q = db.query(PostReport)
         if status == "open":
             q = q.filter(PostReport.reviewed == False)  # noqa: E712
@@ -250,13 +301,11 @@ def workflow_sla_summary(
             q = q.filter(PostReport.created_at >= start_dt)
         if end_dt:
             q = q.filter(PostReport.created_at < end_dt)
-        for r in q.all():
-            created = r.created_at or now
-            if not r.reviewed:
-                pending_count += 1
-            if (not r.reviewed) and now > created + timedelta(hours=24):
-                timeout_count += 1
+        report_pending_q = q.filter(PostReport.reviewed == False)  # noqa: E712
+        pending_count += int(report_pending_q.count() or 0)
+        timeout_count += int(report_pending_q.filter(PostReport.created_at < timeout_line).count() or 0)
 
+    # 今日处理量直接从审计流水统计，避免依赖各业务表状态推断。
     processed_today = (
         db.query(WorkflowAudit)
         .filter(
@@ -265,6 +314,7 @@ def workflow_sla_summary(
         )
         .count()
     )
+    # 近 300 条审计用于估算平均处理时长，兼顾精度与查询成本。
     audits = (
         db.query(WorkflowAudit)
         .filter(WorkflowAudit.action.in_(["approve", "reject", "offline"]))
@@ -272,18 +322,31 @@ def workflow_sla_summary(
         .limit(300)
         .all()
     )
+    # 批量拉取源对象 created_at，避免逐条按任务类型回表（N+1）。
+    post_ids = {int(a.biz_id) for a in audits if a.task_type == "post"}
+    comment_ids = {int(a.biz_id) for a in audits if a.task_type == "comment"}
+    report_ids = {int(a.biz_id) for a in audits if a.task_type == "report"}
+    post_created_map = {
+        int(i): c
+        for i, c in db.query(Post.id, Post.created_at).filter(Post.id.in_(list(post_ids))).all()
+    } if post_ids else {}
+    comment_created_map = {
+        int(i): c
+        for i, c in db.query(Comment.id, Comment.created_at).filter(Comment.id.in_(list(comment_ids))).all()
+    } if comment_ids else {}
+    report_created_map = {
+        int(i): c
+        for i, c in db.query(PostReport.id, PostReport.created_at).filter(PostReport.id.in_(list(report_ids))).all()
+    } if report_ids else {}
     durations: list[float] = []
     for a in audits:
         source_created = None
         if a.task_type == "post":
-            p = db.query(Post.created_at).filter(Post.id == a.biz_id).first()
-            source_created = p[0] if p else None
+            source_created = post_created_map.get(int(a.biz_id))
         elif a.task_type == "comment":
-            c = db.query(Comment.created_at).filter(Comment.id == a.biz_id).first()
-            source_created = c[0] if c else None
+            source_created = comment_created_map.get(int(a.biz_id))
         elif a.task_type == "report":
-            r = db.query(PostReport.created_at).filter(PostReport.id == a.biz_id).first()
-            source_created = r[0] if r else None
+            source_created = report_created_map.get(int(a.biz_id))
         if source_created and a.created_at and a.created_at >= source_created:
             durations.append((a.created_at - source_created).total_seconds() / 3600)
 
@@ -302,6 +365,7 @@ def batch_action(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """批量执行流程动作；逐任务 savepoint，失败不影响其他任务。"""
     if not _can_view_workflow(db, _.id):
         raise HTTPException(status_code=403, detail="forbidden")
     if payload.action not in _BATCH_ACTIONS:
@@ -322,6 +386,7 @@ def batch_action(
         )
         if tpl:
             tpl_text = tpl.content
+    # 模板内容与手工备注拼接成最终审计备注，便于追溯。
     final_remark = " ".join([x for x in [tpl_text, (payload.remark or "").strip()] if x]).strip() or None
 
     for task_id in payload.task_ids:
@@ -332,98 +397,108 @@ def batch_action(
             biz_id = int(raw_id)
         except Exception:
             fail_count += 1
-            details.append({"task_id": task_id, "ok": False, "error": "invalid task id"})
+            details.append(
+                {
+                    "task_id": task_id,
+                    "ok": False,
+                    "error": "invalid task id",
+                    "error_code": "INVALID_TASK_ID",
+                }
+            )
             continue
 
         try:
-            if kind == "post":
-                row = db.query(Post).filter(Post.id == biz_id).first()
-                if row is None:
-                    raise ValueError("post not found")
-                prev_status = row.review_status
-                if payload.action == "approve":
-                    row.review_status = "approved"
-                    row.published = True
-                    if not row.published_at:
-                        row.published_at = now_shanghai_naive()
-                elif payload.action == "reject":
-                    row.review_status = "rejected"
-                elif payload.action == "offline":
-                    row.review_status = "offline"
-                    row.published = False
-                    row.offline_at = now_shanghai_naive()
-                elif payload.action == "reassign":
-                    row.author_id = payload.assignee_id
-                ok = True
-                msg = "ok"
-                db.add(
-                    WorkflowAudit(
-                        task_type="post",
-                        biz_id=biz_id,
-                        operator_id=_.id,
-                        action=payload.action,
-                        from_status=prev_status,
-                        to_status=row.review_status,
-                        remark=final_remark,
+            # 每条任务使用 savepoint，单条失败仅回滚该条，避免批处理中间失败污染其他成功任务。
+            with db.begin_nested():
+                if kind == "post":
+                    row = db.query(Post).filter(Post.id == biz_id).first()
+                    if row is None:
+                        raise ValueError("post not found")
+                    prev_status = row.review_status
+                    if payload.action == "approve":
+                        row.review_status = "approved"
+                        row.published = True
+                        if not row.published_at:
+                            row.published_at = now_shanghai_naive()
+                    elif payload.action == "reject":
+                        row.review_status = "rejected"
+                    elif payload.action == "offline":
+                        row.review_status = "offline"
+                        row.published = False
+                        row.offline_at = now_shanghai_naive()
+                    elif payload.action == "reassign":
+                        row.author_id = payload.assignee_id
+                    ok = True
+                    msg = "ok"
+                    db.add(
+                        WorkflowAudit(
+                            task_type="post",
+                            biz_id=biz_id,
+                            operator_id=_.id,
+                            action=payload.action,
+                            from_status=prev_status,
+                            to_status=row.review_status,
+                            remark=final_remark,
+                        )
                     )
-                )
-            elif kind == "comment":
-                row = db.query(Comment).filter(Comment.id == biz_id).first()
-                if row is None:
-                    raise ValueError("comment not found")
-                prev_status = row.status
-                if payload.action == "approve":
-                    row.status = "approved"
-                elif payload.action == "reject":
-                    row.status = "rejected"
-                elif payload.action == "offline":
-                    row.status = "rejected"
+                elif kind == "comment":
+                    row = db.query(Comment).filter(Comment.id == biz_id).first()
+                    if row is None:
+                        raise ValueError("comment not found")
+                    prev_status = row.status
+                    if payload.action == "approve":
+                        row.status = "approved"
+                    elif payload.action == "reject":
+                        row.status = "rejected"
+                    elif payload.action == "offline":
+                        row.status = "rejected"
+                    else:
+                        raise ValueError("comment task does not support reassign")
+                    ok = True
+                    msg = "ok"
+                    db.add(
+                        WorkflowAudit(
+                            task_type="comment",
+                            biz_id=biz_id,
+                            operator_id=_.id,
+                            action=payload.action,
+                            from_status=prev_status,
+                            to_status=row.status,
+                            remark=final_remark,
+                        )
+                    )
+                elif kind == "report":
+                    row = db.query(PostReport).filter(PostReport.id == biz_id).first()
+                    if row is None:
+                        raise ValueError("report not found")
+                    prev_status = "closed" if row.reviewed else "open"
+                    if payload.action in {"approve", "reject", "offline"}:
+                        row.reviewed = True
+                        if payload.action == "offline":
+                            p = db.query(Post).filter(Post.id == row.post_id).first()
+                            if p is not None:
+                                p.review_status = "offline"
+                                p.published = False
+                                p.offline_at = now_shanghai_naive()
+                    else:
+                        raise ValueError("report task does not support reassign")
+                    ok = True
+                    msg = "ok"
+                    db.add(
+                        WorkflowAudit(
+                            task_type="report",
+                            biz_id=biz_id,
+                            operator_id=_.id,
+                            action=payload.action,
+                            from_status=prev_status,
+                            to_status="closed" if row.reviewed else "open",
+                            remark=final_remark,
+                        )
+                    )
                 else:
-                    raise ValueError("comment task does not support reassign")
-                ok = True
-                msg = "ok"
-                db.add(
-                    WorkflowAudit(
-                        task_type="comment",
-                        biz_id=biz_id,
-                        operator_id=_.id,
-                        action=payload.action,
-                        from_status=prev_status,
-                        to_status=row.status,
-                        remark=final_remark,
-                    )
-                )
-            elif kind == "report":
-                row = db.query(PostReport).filter(PostReport.id == biz_id).first()
-                if row is None:
-                    raise ValueError("report not found")
-                prev_status = "closed" if row.reviewed else "open"
-                if payload.action in {"approve", "reject", "offline"}:
-                    row.reviewed = True
-                    if payload.action == "offline":
-                        p = db.query(Post).filter(Post.id == row.post_id).first()
-                        if p is not None:
-                            p.review_status = "offline"
-                            p.published = False
-                            p.offline_at = now_shanghai_naive()
-                else:
-                    raise ValueError("report task does not support reassign")
-                ok = True
-                msg = "ok"
-                db.add(
-                    WorkflowAudit(
-                        task_type="report",
-                        biz_id=biz_id,
-                        operator_id=_.id,
-                        action=payload.action,
-                        from_status=prev_status,
-                        to_status="closed" if row.reviewed else "open",
-                        remark=final_remark,
-                    )
-                )
-            else:
-                raise ValueError("unsupported task kind")
+                    raise ValueError("unsupported task kind")
         except Exception as e:  # noqa: BLE001
+            # 收敛异常为字符串，交由 error_code 分类器做前端可消费的稳定标签。
             ok = False
             msg = str(e)
 
@@ -432,10 +507,24 @@ def batch_action(
             details.append({"task_id": task_id, "ok": True})
         else:
             fail_count += 1
-            details.append({"task_id": task_id, "ok": False, "error": msg})
+            details.append(
+                {
+                    "task_id": task_id,
+                    "ok": False,
+                    "error": msg,
+                    "error_code": _classify_batch_error(msg),
+                }
+            )
 
+    # 统一提交成功变更；失败项已在 savepoint 里隔离回滚。
     db.commit()
-    return {"ok": True, "success_count": success_count, "fail_count": fail_count, "details": details}
+    return {
+        "ok": True,
+        "success_count": success_count,
+        "fail_count": fail_count,
+        "details": details,
+        "failed_examples": _collect_failed_examples(details),
+    }
 
 
 @router.get("/reason-templates")
@@ -443,6 +532,7 @@ def list_reason_templates(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """返回启用中的审核意见模板列表。"""
     if not _can_view_workflow(db, _.id):
         raise HTTPException(status_code=403, detail="forbidden")
     rows = (
@@ -460,6 +550,7 @@ def get_task_audits(
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
 ):
+    """查询单任务审计流水，附带操作人名称映射。"""
     if not _can_view_workflow(db, _.id):
         raise HTTPException(status_code=403, detail="forbidden")
     try:
